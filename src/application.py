@@ -1,5 +1,6 @@
 import socket
 import argparse
+import struct #for DRTP 
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='UDP client and server')
@@ -12,11 +13,22 @@ args = parser.parse_args()
 UDP_IP = args.server if args.server else "127.0.0.1"
 UDP_PORT = args.port if args.port else 8080
 
+# DRTP header fields
+sequence_number = 1
+acknowledgment_number = 1
+flags = 1
+file_size = 0
+
+# Create the DRTP header
+header = struct.pack('!HHLL', sequence_number, acknowledgment_number, flags, file_size)
+
+# Code for the Client 
 if args.client:
     print('Client started...')
     print("UDP target IP: %s" % UDP_IP)
     print("UDP target port: %s" % UDP_PORT)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
+
 
     # Three-way handshake
     sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
@@ -24,6 +36,11 @@ if args.client:
     if data == b'SYN-ACK':
         sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
 
+        message = 'Hello, Server!'
+        packet = header + message.encode()
+        sock.sendto(packet, (UDP_IP, UDP_PORT))
+
+#Code for the Server 
 elif args.server:
     print('Server started...')
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP 
@@ -36,6 +53,11 @@ elif args.server:
             data, addr = sock.recvfrom(1024)
             if data == b'ACK':
                 print('Connection Established (yey)')
+                data, addr = sock.recvfrom(1024)
+                header = data[:12]  # The header is the first 12 bytes of the data
+                sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
+                message = data[12:].decode()
+                print(f'Received message: {message}, Seq: {sequence_number}, Ack: {acknowledgment_number}, Flags: {flags}, File Size: {file_size}')
         else:
             print("received message: %s" % data.decode())
 else:
