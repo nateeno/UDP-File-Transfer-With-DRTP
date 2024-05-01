@@ -28,6 +28,7 @@ if args.client:
     print("UDP target IP: %s" % UDP_IP)
     print("UDP target port: %s" % UDP_PORT)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
+    sock.settimeout(1.0)  # GBN timeout (1sec)
 
 
     # Three-way handshake
@@ -35,16 +36,35 @@ if args.client:
     data, addr = sock.recvfrom(1024)
     if data == b'SYN-ACK':
         sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
-
-        message = 'Hello, Server!'
-        packet = header + message.encode()
-        sock.sendto(packet, (UDP_IP, UDP_PORT))
+        
+        # Start GBN, after connection 
+        sequence_number = 1
+        while True:
+            try:
+                # Create DRTP header and packet
+                header = struct.pack('!HHLL', sequence_number, 0, 0, 0)
+                message = 'Hello, Server!'
+                packet = header + message.encode()
+                
+                # Send packet and wait for ACK
+                sock.sendto(packet, (UDP_IP, UDP_PORT))
+                data, addr = sock.recvfrom(1024)
+                
+                # If ACK received, increment sequence number
+                if data == b'ACK':
+                    sequence_number += 1
+                    break
+            except socket.timeout:
+                # If timeout, go back to start of loop to retransmit packet
+                continue
 
 #Code for the Server 
 elif args.server:
     print('Server started...')
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP 
     sock.bind((UDP_IP, UDP_PORT))
+
+    expected_sequence_number = 1
 
     while True: 
         data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
@@ -53,12 +73,20 @@ elif args.server:
             data, addr = sock.recvfrom(1024)
             if data == b'ACK':
                 print('Connection Established (yey)')
-                data, addr = sock.recvfrom(1024)
-                header = data[:12]  # The header is the first 12 bytes of the data
-                sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
-                message = data[12:].decode()
-                print(f'Received message: {message}, Seq: {sequence_number}, Ack: {acknowledgment_number}, Flags: {flags}, File Size: {file_size}')
-        else:
-            print("received message: %s" % data.decode())
+                
+                # Start (GBN) after connection 
+                while True:
+                    data, addr = sock.recvfrom(1024)
+                    header = data[:12]
+                    sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
+                    message = data[12:].decode()
+                    
+                    # If received sequence number as expected send ACK + increment expected sequence number
+                    if sequence_number == expected_sequence_number:
+                        print(f'Received message: {message}, Seq: {sequence_number}, Ack: {acknowledgment_number}, Flags: {flags}, File Size: {file_size}')
+                        sock.sendto(b'ACK', addr)
+                        expected_sequence_number += 1
+
+
 else:
-    print('Invalid option. Use -s for server and -c for client.')
+    print('Invalid option. Be cool and use a command bro')
