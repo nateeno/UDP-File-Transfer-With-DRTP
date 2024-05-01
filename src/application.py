@@ -32,31 +32,31 @@ if args.client:
 
 
     # Three-way handshake
-    sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
+    sock.sendto(b'SYN', (UDP_IP, UDP_PORT)) # Connection established
     data, addr = sock.recvfrom(1024)
     if data == b'SYN-ACK':
-        sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
+        sock.sendto(b'ACK', (UDP_IP, UDP_PORT)) # Connection established
         
         # Start GBN, after connection 
         sequence_number = 1
         while True:
             try:
                 # Create DRTP header and packet
-                header = struct.pack('!HHLL', sequence_number, 0, 0, 0)
+                header = struct.pack('!HHLL', sequence_number, 0, 0, 0) 
                 message = 'Hello, Server!'
-                packet = header + message.encode()
+                packet = header + message.encode() # DRTP Header
                 
-                # Send packet and wait for ACK
+                # Send packet, wait for ACK
                 sock.sendto(packet, (UDP_IP, UDP_PORT))
                 data, addr = sock.recvfrom(1024)
                 
                 # If ACK received, increment sequence number
                 if data == b'ACK':
-                    sequence_number += 1
+                    sequence_number += 1 # Reliablity function
                     break
             except socket.timeout:
                 # If timeout, go back to start of loop to retransmit packet
-                continue
+                continue # Reliablility function 
 
 #Code for the Server 
 elif args.server:
@@ -71,8 +71,8 @@ elif args.server:
         if data == b'SYN':
             sock.sendto(b'SYN-ACK', addr)
             data, addr = sock.recvfrom(1024)
-            if data == b'ACK':
-                print('Connection Established (yey)')
+            if data == b'ACK': # Connection establishment 
+                print('Connection Established (yey)') 
                 
                 # Start (GBN) after connection 
                 while True:
@@ -84,8 +84,8 @@ elif args.server:
                     # If received sequence number as expected send ACK + increment expected sequence number
                     if sequence_number == expected_sequence_number:
                         print(f'Received message: {message}, Seq: {sequence_number}, Ack: {acknowledgment_number}, Flags: {flags}, File Size: {file_size}')
-                        sock.sendto(b'ACK', addr)
-                        expected_sequence_number += 1
+                        sock.sendto(b'ACK', addr) # Reliablity function
+                        expected_sequence_number += 1 # Reliablity function
 
 
 else:
