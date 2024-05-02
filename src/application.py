@@ -22,7 +22,10 @@ file_size = 0
 # Create the DRTP header
 header = struct.pack('!HHLL', sequence_number, acknowledgment_number, flags, file_size)
 
-# Code for the Client 
+"""
+Code for the client!
+"""
+
 if args.client:
     print('Client started...')
     print("UDP target IP: %s" % UDP_IP)
@@ -58,7 +61,11 @@ if args.client:
                 # If timeout, go back to start of loop to retransmit packet
                 continue # Reliablility function 
 
-#Code for the Server 
+
+    """
+    Code for the server!
+    """
+
 elif args.server:
     print('Server started...')
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP 
@@ -66,13 +73,15 @@ elif args.server:
 
     expected_sequence_number = 1
 
+    buffer = {} # Buffer to store packets
+
     while True: 
         data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
         if data == b'SYN':
             sock.sendto(b'SYN-ACK', addr)
             data, addr = sock.recvfrom(1024)
-            if data == b'ACK': # Connection establishment 
-                print('Connection Established (yey)') 
+            if data == b'ACK':
+                print('Connection Established (yey)')
                 
                 # Start (GBN) after connection 
                 while True:
@@ -84,8 +93,23 @@ elif args.server:
                     # If received sequence number as expected send ACK + increment expected sequence number
                     if sequence_number == expected_sequence_number:
                         print(f'Received message: {message}, Seq: {sequence_number}, Ack: {acknowledgment_number}, Flags: {flags}, File Size: {file_size}')
-                        sock.sendto(b'ACK', addr) # Reliablity function
-                        expected_sequence_number += 1 # Reliablity function
+                        sock.sendto(b'ACK', addr)
+                        expected_sequence_number += 1
+                        
+                        # Check if the next packet is in the buffer
+                        while expected_sequence_number in buffer:
+                            data = buffer.pop(expected_sequence_number)
+                            header = data[:12]
+                            sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
+                            message = data[12:].decode()
+                            print(f'Received message: {message}, Seq: {sequence_number}, Ack: {acknowledgment_number}, Flags: {flags}, File Size: {file_size}')
+                            expected_sequence_number += 1
+                    elif sequence_number < expected_sequence_number or sequence_number in buffer:
+                        # If packet is a duplicate, discard it
+                        continue
+                    else:
+                        # If packet is out of order, store it in buffer
+                        buffer[sequence_number] = data
 
 
 else:
