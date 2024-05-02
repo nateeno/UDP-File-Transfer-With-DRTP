@@ -28,7 +28,7 @@ Function for the server
 """
 def write_chunks_to_file(file_chunks):
     # Write the file chunks to a new file
-    with open('received_file.jpg', 'wb') as file:
+    with open('img/received_file.jpg', 'wb') as file:
         for chunk in file_chunks:
             file.write(chunk)
 
