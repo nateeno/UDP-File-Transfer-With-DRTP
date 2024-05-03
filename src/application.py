@@ -1,17 +1,24 @@
 import socket
 import argparse
-import struct #for DRTP 
+import struct #for DRTP
+import time
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='UDP client and server')
-parser.add_argument('--client', '-c', help='Client IP address')
-parser.add_argument('--server', '-s', help='Server IP address')
+parser.add_argument('--client', '-c', action='store_true', help='Run as client')
+parser.add_argument('--server', '-s', action='store_true', help='Run as server')
+parser.add_argument('--ip', '-i', help='IP address of the server')
 parser.add_argument('--port', '-p', type=int, help='UDP port')
 parser.add_argument('--file', '-f', help='File name')
+parser.add_argument('--window', '-w', type=int, default=3, help='Sliding window size')
+parser.add_argument('--discard', '-d', type=int, help='Seq number to discard for retransmission test')
 args = parser.parse_args()
 
-UDP_IP = args.server if args.server else "127.0.0.1"
+# Get IP address, port, window size, and discard seq number
+UDP_IP = args.ip if args.ip else "127.0.0.1"
 UDP_PORT = args.port if args.port else 8080
+WINDOW_SIZE = args.window
+DISCARD_SEQ = args.discard
 
 # DRTP header fields
 sequence_number = 1
@@ -49,19 +56,37 @@ if args.client:
     with open(args.file, 'rb') as file:
         file_data = file.read()
     
+    # Define the size of the DRTP header
+    header_size = 24  # 6 bytes each for sequence number, acknowledgment number, and flags
+
+    MAX_PACKET_SIZE = 1024 # Define the maximum packet size
+
+    # Calculate the size of the data chunk
+    chunk_size = MAX_PACKET_SIZE - header_size
+
     # Split the file data into chunks 
-    MAX_PACKET_SIZE = 1024
-    file_chunks = [file_data[i:i+MAX_PACKET_SIZE] for i in range(0, len(file_data), MAX_PACKET_SIZE)]
+    file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
+
+    # Print the number of chunks (packets to be sent)
+    print(f'Number of packets: {len(file_chunks)}')
 
 
     # Three-way handshake
     sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
     data, addr = sock.recvfrom(4096)
     if data == b'SYN-ACK':
+        print("SYN-ACK packet is received")
         sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
-        
+        print("ACK packet is sent")
+        print("Connection established")
+
+        # Start time
+        start_time = time.time()
+
+
         # Start GBN, after connection 
         sequence_number = 1
+        
         for chunk in file_chunks:
             try:
                 # Create DRTP header and packet
@@ -71,14 +96,28 @@ if args.client:
                 
                 # Send packet and wait for ACK
                 sock.sendto(packet, (UDP_IP, UDP_PORT))
+                print(f"packet with seq = {sequence_number} is sent")
+
                 data, addr = sock.recvfrom(4096)
-                
-                # If ACK received, increment sequence number
-                if data == b'ACK':
+
+                # Unpack the received data into an integer
+                ack = struct.unpack('!H', data)[0]
+
+                if ack == sequence_number:
                     sequence_number += 1
+                
             except socket.timeout:
                 # If timeout, go back to start of loop to retransmit packet
                 continue
+         # End time
+        end_time = time.time()
+
+        # Calculate elapsed time and throughput:
+        elapsed_time = end_time - start_time
+        file_size_bits = len(file_data) * 8
+        throughput = file_size_bits / elapsed_time
+        throughput_mbps = throughput / 1000000
+        print(f"The throughput is {throughput_mbps} Mbps")
 
 
     """
@@ -100,8 +139,18 @@ elif args.server:
     while True: 
         data, addr = sock.recvfrom(4096)  # buffer size is 4096 bytes
         if data == b'SYN':
+            print("SYN packet is received")
             sock.sendto(b'SYN-ACK', addr)
+            print("SYN-ACK packet is sent")
+
             data, addr = sock.recvfrom(4096)
+            # If the client sends a FIN packet:
+            if data == b'FIN':
+                print("FIN packet is received")
+                sock.sendto(b'FIN-ACK', addr)
+                print("FIN ACK packet is sent")
+                print("Connection Closes")
+                break
             if data == b'ACK':
                 print('Connection Established (yey)')
 
@@ -112,9 +161,15 @@ elif args.server:
                     sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
                     chunk = data[12:]
 
+                    # If sequence_number is what we expected, send an ACK back
                     if sequence_number == expected_sequence_number:
+                        print(f"packet {sequence_number} is received")
+
                         file_chunks.append(chunk)  # Add the chunk to the list
-                        sock.sendto(b'ACK', addr)
+                        ack = struct.pack('!H', sequence_number)  # pack sequence number into binary
+                        sock.sendto(ack, addr)  # send acknowledgement
+                        print(f"sending ack for the received {sequence_number}")
+
                         expected_sequence_number += 1
 
                         # If this was the last packet, break the loop
@@ -137,7 +192,8 @@ elif args.server:
                         # If packet is out of order, store it in buffer
                         buffer[sequence_number] = data
 
-        if file_transfer_complete:  
+        if file_transfer_complete:
+            print(f'Total number of packets received: {sequence_number}')
             break  
 
     # Call the function to write chunks to file after the while loop
@@ -145,3 +201,4 @@ elif args.server:
 
 else:
     print('Invalid option. Be cool and use a command bro')
+
