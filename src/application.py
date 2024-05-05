@@ -108,7 +108,7 @@ if args.client:
                         
                         # Send packet and wait for ACK
                         sock.sendto(packet, (UDP_IP, UDP_PORT))
-                        print(f"packet with seq = {sequence_number} is sent")
+                        print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {sequence_number} is sent")
 
                         data, addr = sock.recvfrom(4096)
 
@@ -127,7 +127,7 @@ if args.client:
             while True:
                 try:
                     sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
-                    print("FIN packet is sent")
+                    print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
                     data, addr = sock.recvfrom(4096)
                     if data == b'FIN-ACK':
                         print("FIN-ACK packet is received")
@@ -188,6 +188,9 @@ elif args.server:
                 if data == b'ACK':
                     print('Connection Established (yey)')
 
+                    # Start time
+                    start_time = time.time()
+
                     # Start receiving file chunks
                     while True:
                         data, addr = sock.recvfrom(4096)
@@ -197,7 +200,7 @@ elif args.server:
 
                         # If sequence_number is what we expected, send an ACK back
                         if sequence_number == expected_sequence_number:
-                            print(f"packet {sequence_number} is received")
+                            print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
 
                             file_chunks.append(chunk)  # Add the chunk to the list
                             ack = struct.pack('!H', sequence_number)  # pack sequence number into binary
@@ -229,6 +232,16 @@ elif args.server:
             if file_transfer_complete:
                 print(f'Total number of packets received: {sequence_number}')
                 break  
+        # End time
+        end_time = time.time()
+
+        # Calculate elapsed time and throughput:
+        elapsed_time = end_time - start_time
+        total_file_size = sum(len(chunk) for chunk in file_chunks)  # calculate total file size
+        file_size_bits = total_file_size * 8
+        throughput = file_size_bits / elapsed_time
+        throughput_mbps = throughput / 1000000
+        print(f"The throughput is {throughput_mbps} Mbps")
 
         # Call the function to write chunks to file after the while loop
         write_chunks_to_file(file_chunks)
@@ -247,8 +260,6 @@ elif args.server:
             
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
 
 
 else:
