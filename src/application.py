@@ -1,9 +1,9 @@
 import socket
 import argparse
-import struct #for DRTP
+import struct  # for DRTP
 import time
 
-# Set up argument parser
+# Initialize argument parser
 parser = argparse.ArgumentParser(description='UDP client and server')
 parser.add_argument('--client', '-c', action='store_true', help='Run as client')
 parser.add_argument('--server', '-s', action='store_true', help='Run as server')
@@ -14,27 +14,38 @@ parser.add_argument('--window', '-w', type=int, default=3, help='Sliding window 
 parser.add_argument('--discard', '-d', type=int, help='Seq number to discard for retransmission test')
 args = parser.parse_args()
 
-# Get IP address, port, window size, and discard seq number
-UDP_IP = args.ip if args.ip else "127.0.0.1"
-UDP_PORT = args.port if args.port else 8080
+# Parse command-line arguments
+UDP_IP = args.ip or "127.0.0.1"
+UDP_PORT = args.port or 8080
 WINDOW_SIZE = args.window
 DISCARD_SEQ = args.discard
 
-# Check if port number is valid
+# Validate port number
 if not (1024 <= UDP_PORT <= 65535):
     print("Error: Port number must be in the range 1024-65535")
     exit(1)
 
-# DRTP header fields
-# Define the format of the DRTP header
+# Define DRTP header fields
 header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
 sequence_number = 1
 acknowledgment_number = 1
 flags = 1
 file_size = 0
 
-# Create the DRTP header
+# Construct DRTP header
 header = struct.pack('!HHLL', sequence_number, acknowledgment_number, flags, file_size)
+
+"""
+Function to write chunks of file
+"""
+def write_chunks_to_file(file_chunks):
+    try:
+        with open('img/received_file.jpg', 'wb') as file:
+            for chunk in file_chunks:
+                file.write(chunk)
+    except Exception as e:
+        print(f"Error writing to file: {e}")
+        exit(1)
 
 """
 Function for the server
@@ -136,6 +147,7 @@ if args.client:
                         sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
                         print("ACK packet is sent")
                         print("Connection terminated")
+                        sock.close()  # Close the socket
                         break  # break the while loop when FIN-ACK is received
                 except socket.timeout:
                     # If timeout, stay in the loop to retransmit 'FIN'
@@ -269,6 +281,7 @@ elif args.server:
                     if data == b'ACK':
                         print("ACK packet is received")
                         print("Connection terminated")
+                        sock.close()  # Close the socket
                         break   
             
     except Exception as e:
