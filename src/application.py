@@ -47,7 +47,7 @@ def write_chunks_to_file(file_chunks):
         exit(1)
 
 """
-Code for the client!
+Code for the client
 """
 
 if args.client:
@@ -161,7 +161,7 @@ if args.client:
 elif args.server:
     try:
         print('Server started...')
-        
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP 
             sock.bind((UDP_IP, UDP_PORT))
