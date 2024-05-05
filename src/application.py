@@ -26,6 +26,8 @@ if not (1024 <= UDP_PORT <= 65535):
     exit(1)
 
 # DRTP header fields
+# Define the format of the DRTP header
+header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
 sequence_number = 1
 acknowledgment_number = 1
 flags = 1
@@ -70,7 +72,7 @@ if args.client:
             exit(1)
 
         # Define the size of the DRTP header
-        header_size = 24  # 6 bytes each for sequence number, acknowledgment number, and flags
+        header_size = struct.calcsize(header_format)
 
         MAX_PACKET_SIZE = 1024 # Define the maximum packet size
 
@@ -103,7 +105,7 @@ if args.client:
                     try:
                         # Create DRTP header and packet
                         flags = 1 if file_chunks.index(chunk) == len(file_chunks) - 1 else 0  # set flag to 1 if this is the last chunk
-                        header = struct.pack('!HHLL', sequence_number, 0, flags, 0)
+                        header = struct.pack(header_format, sequence_number, 0, flags)
                         packet = header + chunk
                         
                         # Send packet and wait for ACK
@@ -176,6 +178,8 @@ elif args.server:
 
         file_transfer_complete = False  
 
+         # Define the size of the DRTP header
+        header_size = struct.calcsize(header_format)
         
         while True: 
             data, addr = sock.recvfrom(4096)  # buffer size is 4096 bytes
@@ -194,9 +198,9 @@ elif args.server:
                     # Start receiving file chunks
                     while True:
                         data, addr = sock.recvfrom(4096)
-                        header = data[:12]
-                        sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
-                        chunk = data[12:]
+                        header = data[:header_size]  
+                        sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)  
+                        chunk = data[header_size:]  
 
                         # If sequence_number is what we expected, send an ACK back
                         if sequence_number == expected_sequence_number:
