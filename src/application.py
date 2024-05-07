@@ -157,21 +157,13 @@ if args.client:
                         print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
 
             # After sending all packets
-            while True:
-                try:
-                    sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
-                    print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
-                    data, addr = sock.recvfrom(4096)
-                    if data == b'FIN-ACK':
-                        print("FIN-ACK packet is received")
-                        sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
-                        print("ACK packet is sent")
-                        print("Connection terminated")
-                        sock.close()  # Close the socket
-                        break  # break the while loop
-                except socket.timeout:
-                    # If timeout, stay in the loop to retransmit 'FIN'
-                    print("Timeout, retransmitting FIN packet")
+            sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
+            print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
+            data, addr = sock.recvfrom(4096)
+            if data == b'ACK':
+                print("ACK packet is received")
+                print("Connection terminated")
+                sock.close()  # Close the socket
             
             # End time
             end_time = time.time()
@@ -291,18 +283,13 @@ elif args.server:
             # Call the function to write chunks to file after the while loop
             write_chunks_to_file(file_chunks)
 
-            while True:  # Wait for 'FIN' from client
-                data, addr = sock.recvfrom(4096)
-                if data == b'FIN':
-                    print("FIN packet is received")
-                    sock.sendto(b'FIN-ACK', addr)
-                    print("FIN-ACK packet is sent")
-                    data, addr = sock.recvfrom(4096)
-                    if data == b'ACK':
-                        print("ACK packet is received")
-                        print("Connection terminated")
-                        sock.close()  # Close the socket
-                        break   
+            data, addr = sock.recvfrom(4096)
+            if data == b'FIN':
+                print("FIN packet is received")
+                sock.sendto(b'ACK', addr)
+                print("ACK packet is sent")
+                print("Connection terminated")
+                sock.close()  # Close the socket
             
     except Exception as e:
         print(f"An error occurred: {e}")
