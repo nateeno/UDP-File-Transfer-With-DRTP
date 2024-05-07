@@ -110,32 +110,44 @@ if args.client:
 
             # Start GBN, after connection 
             sequence_number = 1
-            
-            for chunk in file_chunks:
-                while True:
-                    try:
-                        # Create DRTP header and packet
-                        flags = 1 if file_chunks.index(chunk) == len(file_chunks) - 1 else 0  # set flag to 1 if this is the last chunk
-                        header = struct.pack(header_format, sequence_number, 0, flags)
-                        packet = header + chunk
-                        
-                        # Send packet and wait for ACK
-                        sock.sendto(packet, (UDP_IP, UDP_PORT))
-                        print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {sequence_number} is sent")
 
-                        data, addr = sock.recvfrom(4096)
+            # Sliding window implementation
+            base = 1
+            nextseqnum = 1
+            window_size = WINDOW_SIZE
+            frame_buffer = [None] * window_size
 
-                        # Unpack the received data into an integer
-                        ack = struct.unpack('!H', data)[0]
-
-                        if ack == sequence_number:
-                            sequence_number += 1
-                            break
+            while base <= len(file_chunks):
+                while nextseqnum < base + window_size and nextseqnum <= len(file_chunks):
+                    # Create DRTP header and packet
+                    flags = 1 if nextseqnum == len(file_chunks) else 0  # set flag to 1 if this is the last chunk
+                    header = struct.pack(header_format, nextseqnum, 0, flags)
+                    packet = header + file_chunks[nextseqnum - 1]
                     
-                    except socket.timeout:
-                        # If timeout, stay in the loop to retransmit packet
-                        print(f"Timeout, retransmitting packet {sequence_number}")
-            
+                    # Store the packet in the frame buffer
+                    frame_buffer[(nextseqnum - 1) % window_size] = packet
+
+                    # Send packet and wait for ACK
+                    sock.sendto(packet, (UDP_IP, UDP_PORT))
+                    print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent")
+
+                    nextseqnum += 1
+
+                try:
+                    data, addr = sock.recvfrom(4096)
+
+                    # Unpack the received data into an integer
+                    ack = struct.unpack('!H', data)[0]
+
+                    if ack >= base and ack < nextseqnum:
+                        base = ack + 1
+                except socket.timeout:
+                    # If timeout, retransmit all unacknowledged frames
+                    print(f"Timeout, retransmitting unacknowledged packets")
+                    for i in range(base, nextseqnum):
+                        sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
+                        print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent")
+
             # After sending all packets
             while True:
                 try:
@@ -148,7 +160,7 @@ if args.client:
                         print("ACK packet is sent")
                         print("Connection terminated")
                         sock.close()  # Close the socket
-                        break  # break the while loop when FIN-ACK is received
+                        break  # break the while loop
                 except socket.timeout:
                     # If timeout, stay in the loop to retransmit 'FIN'
                     print("Timeout, retransmitting FIN packet")
