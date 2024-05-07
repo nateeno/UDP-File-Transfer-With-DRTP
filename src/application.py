@@ -36,7 +36,7 @@ BUFFER_SIZE = 4096
 MAX_PACKET_SIZE = 1000
 
 # Construct DRTP header
-header = struct.pack('!HHLL', sequence_number, acknowledgment_number, flags, file_size)
+header = struct.pack(header_format, sequence_number, acknowledgment_number, flags)
 
 """
 Function to write chunks of file
@@ -87,8 +87,6 @@ if args.client:
 
         # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
-
-        MAX_PACKET_SIZE = 1024 # Define the maximum packet size
 
         # Calculate the size of the data chunk
         chunk_size = MAX_PACKET_SIZE - header_size
@@ -260,7 +258,7 @@ elif args.server:
                                 while expected_sequence_number in buffer:
                                     data = buffer.pop(expected_sequence_number)
                                     header = data[:6]
-                                    sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
+                                    sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
                                     chunk = data[6:]
                                     file_chunks.append(chunk)  # Add the chunk to the list
                                     expected_sequence_number += 1
