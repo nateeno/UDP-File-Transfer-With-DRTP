@@ -117,6 +117,7 @@ if args.client:
             window_size = WINDOW_SIZE
             frame_buffer = [None] * window_size
 
+            window_packets = []
             while base <= len(file_chunks):
                 while nextseqnum < base + window_size and nextseqnum <= len(file_chunks):
                     # Create DRTP header and packet
@@ -127,9 +128,12 @@ if args.client:
                     # Store the packet in the frame buffer
                     frame_buffer[(nextseqnum - 1) % window_size] = packet
 
+                    # Add sequence number to the window
+                    window_packets.append(nextseqnum)
+
                     # Send packet and wait for ACK
                     sock.sendto(packet, (UDP_IP, UDP_PORT))
-                    print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent")
+                    print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
 
                     nextseqnum += 1
 
@@ -140,13 +144,16 @@ if args.client:
                     ack = struct.unpack('!H', data)[0]
 
                     if ack >= base and ack < nextseqnum:
+                        # Remove acknowledged packets from the window
+                        window_packets = [seq for seq in window_packets if seq > ack]
+
                         base = ack + 1
                 except socket.timeout:
                     # If timeout, retransmit all unacknowledged frames
                     print(f"Timeout, retransmitting unacknowledged packets")
                     for i in range(base, nextseqnum):
                         sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
-                        print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent")
+                        print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
 
             # After sending all packets
             while True:
