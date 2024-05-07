@@ -27,10 +27,13 @@ if not (1024 <= UDP_PORT <= 65535):
 
 # Define DRTP header fields
 header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
-sequence_number = 1
-acknowledgment_number = 1
-flags = 1
+sequence_number = 2
+acknowledgment_number = 2
+flags = 2
 file_size = 0
+
+BUFFER_SIZE = 4096
+MAX_PACKET_SIZE = 1000
 
 # Construct DRTP header
 header = struct.pack('!HHLL', sequence_number, acknowledgment_number, flags, file_size)
@@ -98,7 +101,7 @@ if args.client:
 
         # Three-way handshake
         sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
-        data, addr = sock.recvfrom(4096)
+        data, addr = sock.recvfrom(BUFFER_SIZE)
         if data == b'SYN-ACK':
             print("SYN-ACK packet is received")
             sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
@@ -138,7 +141,7 @@ if args.client:
                     nextseqnum += 1
 
                 try:
-                    data, addr = sock.recvfrom(4096)
+                    data, addr = sock.recvfrom(BUFFER_SIZE)
 
                     # Unpack the received data into an integer
                     ack = struct.unpack('!H', data)[0]
@@ -256,9 +259,9 @@ elif args.server:
                                 # Check if the next packet is in the buffer
                                 while expected_sequence_number in buffer:
                                     data = buffer.pop(expected_sequence_number)
-                                    header = data[:12]
+                                    header = data[:6]
                                     sequence_number, acknowledgment_number, flags, file_size = struct.unpack('!HHLL', header)
-                                    chunk = data[12:]
+                                    chunk = data[6:]
                                     file_chunks.append(chunk)  # Add the chunk to the list
                                     expected_sequence_number += 1
                             elif sequence_number < expected_sequence_number or sequence_number in buffer:
