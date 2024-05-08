@@ -70,7 +70,7 @@ if args.client:
     try:
         print('Client started...')
         print("UDP target IP: %s" % UDP_IP)
-        print("UDP target port: %s" % UDP_PORT)
+        print("UDP target port: %s\n\n" % UDP_PORT)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         sock.settimeout(1.0)  # GBN timeout (1sec)
 
@@ -94,88 +94,95 @@ if args.client:
         # Split the file data into chunks 
         file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
 
-        # Print the number of chunks (packets to be sent)
         print(f'Number of packets: {len(file_chunks)}')
+        print("Connection Establishment Phase:")
 
         # Three-way handshake
         sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
-        data, addr = sock.recvfrom(BUFFER_SIZE)
-        if data == b'SYN-ACK':
-            print("SYN-ACK packet is received")
-            sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
-            print("ACK packet is sent")
-            print("Connection established")
+        print("SYN packet is sent\n")
+        try:
+            data, addr = sock.recvfrom(BUFFER_SIZE)
+            if data == b'SYN-ACK':
+                print("SYN-ACK packet is received")
+                sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
+                print("ACK packet is sent")
+                print("Connection established")
+        except socket.timeout:
+            print("Connection failed. The server is not responding.")
+            sock.close()
+            exit()
 
-            # Start time
-            start_time = time.time()
+        # Start time
+        start_time = time.time()
 
-            # Start GBN, after connection 
-            sequence_number = 1
+        # Start GBN, after connection 
+        sequence_number = 1
 
-            # Sliding window implementation
-            base = 1
-            nextseqnum = 1
-            window_size = WINDOW_SIZE
-            frame_buffer = [None] * window_size
+        # Sliding window implementation
+        base = 1
+        nextseqnum = 1
+        window_size = WINDOW_SIZE
+        frame_buffer = [None] * window_size
 
-            window_packets = []
-            while base <= len(file_chunks):
-                while nextseqnum < base + window_size and nextseqnum <= len(file_chunks):
-                    # Create DRTP header and packet
-                    flags = 1 if nextseqnum == len(file_chunks) else 0  # set flag to 1 if this is the last chunk
-                    header = struct.pack(header_format, nextseqnum, 0, flags)
-                    packet = header + file_chunks[nextseqnum - 1]
-                    
-                    # Store the packet in the frame buffer
-                    frame_buffer[(nextseqnum - 1) % window_size] = packet
+        window_packets = []
+        while base <= len(file_chunks):
+            while nextseqnum < base + window_size and nextseqnum <= len(file_chunks):
+                # Create DRTP header and packet
+                flags = 1 if nextseqnum == len(file_chunks) else 0  # set flag to 1 if this is the last chunk
+                header = struct.pack(header_format, nextseqnum, 0, flags)
+                packet = header + file_chunks[nextseqnum - 1]
+                
+                # Store the packet in the frame buffer
+                frame_buffer[(nextseqnum - 1) % window_size] = packet
 
-                    # Add sequence number to the window
-                    window_packets.append(nextseqnum)
+                # Add sequence number to the window
+                window_packets.append(nextseqnum)
 
-                    # Send packet and wait for ACK
-                    sock.sendto(packet, (UDP_IP, UDP_PORT))
-                    print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
+                # Send packet and wait for ACK
+                sock.sendto(packet, (UDP_IP, UDP_PORT))
+                print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
 
-                    nextseqnum += 1
+                nextseqnum += 1
 
-                try:
-                    data, addr = sock.recvfrom(BUFFER_SIZE)
+            try:
+                data, addr = sock.recvfrom(BUFFER_SIZE)
 
-                    # Unpack the received data into an integer
-                    ack = struct.unpack('!H', data)[0]
+                # Unpack the received data into an integer
+                ack = struct.unpack('!H', data)[0]
+                print(f"ACK for packet {ack} received")
 
-                    if ack >= base and ack < nextseqnum:
-                        # Remove acknowledged packets from the window
-                        window_packets = [seq for seq in window_packets if seq > ack]
 
-                        base = ack + 1
-                except socket.timeout:
-                    # If timeout, retransmit all unacknowledged frames
-                    print(f"Timeout, retransmitting unacknowledged packets")
-                    for i in range(base, nextseqnum):
-                        sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
-                        print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
+                if ack >= base and ack < nextseqnum:
+                    window_packets = [seq for seq in window_packets if seq > ack]
 
-            # After sending all packets
-            sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
-            print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
-            data, addr = sock.recvfrom(4096)
-            if data == b'ACK':
-                print("ACK packet is received")
-                print("Connection terminated")
-                sock.close()  # Close the socket
-            
-            # End time
-            end_time = time.time()
+                    base = ack + 1
+            except socket.timeout:
+                # If timeout, retransmit all unacknowledged frames
+                print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
+                for i in range(base, nextseqnum):
+                    sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
+                    print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
+                    print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
 
-            # Calculate elapsed time and throughput:
-            elapsed_time = end_time - start_time
-            file_size_bits = len(file_data) * 8
-            throughput = file_size_bits / elapsed_time
-            throughput_mbps = throughput / 1000000
-            print(f"The throughput is {throughput_mbps} Mbps")
+        # After sending all packets
+        sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
+        print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
+        data, addr = sock.recvfrom(4096)
+        if data == b'ACK':
+            print("ACK packet is received")
+            print("Connection terminated")
+            sock.close()  # Close the socket
+        
+        # End time
+        end_time = time.time()
 
-            pass
+        # Calculate elapsed time and throughput:
+        elapsed_time = end_time - start_time
+        file_size_bits = len(file_data) * 8
+        throughput = file_size_bits / elapsed_time
+        throughput_mbps = throughput / 1000000
+        print(f"The throughput is {throughput_mbps} Mbps")
+
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -187,7 +194,7 @@ if args.client:
 elif args.server:
     try:
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
-              
+
         start_time = time.time()
         data_received = False
 
@@ -226,20 +233,24 @@ elif args.server:
                         # Start receiving file chunks
                         while True:
                             data, addr = sock.recvfrom(BUFFER_SIZE)
-                            header = data[:header_size]  
-                            sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)  
-                            chunk = data[header_size:]  
+                            header = data[:header_size]
+                            sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
+                            chunk = data[header_size:]
 
                             # If sequence_number is what we expected, send an ACK back
                             if sequence_number == expected_sequence_number:
-                                print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
+                                if sequence_number == DISCARD_SEQ:
+                                    print(f"Discarding packet with sequence number {DISCARD_SEQ}")
+                                    expected_sequence_number += 1
+                                else:
+                                    print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
 
-                                file_chunks.append(chunk)  # Add the chunk to the list
-                                ack = struct.pack('!H', sequence_number)  # pack sequence number into binary
-                                sock.sendto(ack, addr)  # send acknowledgement
-                                print(f"sending ack for the received {sequence_number}")
+                                    file_chunks.append(chunk)  # Add the chunk to the list
+                                    ack = struct.pack('!H', sequence_number)  # pack sequence number into binary
+                                    sock.sendto(ack, addr)  # send acknowledgement
+                                    print(f"sending ack for the received {sequence_number}")
 
-                                expected_sequence_number += 1
+                                    expected_sequence_number += 1
 
                                 # If this was the last packet, break the loop
                                 if flags == 1:
@@ -260,6 +271,7 @@ elif args.server:
                             else:
                                 # If packet is out of order, store it in buffer
                                 buffer[sequence_number] = data
+                                print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
 
                 if file_transfer_complete:
                     print(f'Total number of packets received: {sequence_number}')
