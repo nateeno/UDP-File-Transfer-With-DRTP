@@ -1,57 +1,45 @@
-import socket
 import argparse
-import struct  # for DRTP
+import socket
+import struct
 import time
+
+# Define constants
+BUFFER_SIZE = 4096
+MAX_PACKET_SIZE = 1000
 
 # Initialize argument parser
 parser = argparse.ArgumentParser(description='UDP client and server')
 parser.add_argument('--client', '-c', action='store_true', help='Run as client')
 parser.add_argument('--server', '-s', action='store_true', help='Run as server')
-parser.add_argument('--ip', '-i', help='IP address of the server')
-parser.add_argument('--port', '-p', type=int, help='UDP port')
+parser.add_argument('--ip', '-i', help='IP address of the server, default is 127.0.0.1')
+parser.add_argument('--port', '-p', type=int, help='UDP port, default is 8080, should be in range 1024-65535')
 parser.add_argument('--file', '-f', type=str, help='File name')
 parser.add_argument('--window', '-w', type=int, default=3, help='Sliding window size')
 parser.add_argument('--discard', '-d', type=int, help='Seq number to discard for retransmission test')
 args = parser.parse_args()
 
-# Parse command-line arguments
-UDP_IP = args.ip or "127.0.0.1"
-UDP_PORT = args.port or 8080
-WINDOW_SIZE = args.window
-DISCARD_SEQ = args.discard
-
-# Validate port number
-if not (1024 <= UDP_PORT <= 65535):
-    print("Error: Port number must be in the range 1024-65535")
-    exit(1)
-
-# Define DRTP header fields
+# Define header fields
 header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
 sequence_number = 2
 acknowledgment_number = 2
 flags = 2
 file_size = 0
 
-BUFFER_SIZE = 4096
-MAX_PACKET_SIZE = 1000
+# Parse command-line arguments and validate
+UDP_IP = args.ip or "127.0.0.1"
+UDP_PORT = args.port or 8080
+WINDOW_SIZE = args.window
+DISCARD_SEQ = args.discard
+
+if not 1024 <= UDP_PORT <= 65535:
+    print("Error: Port number must be in the range 1024-65535")
+    exit(1)
 
 # Construct DRTP header
 header = struct.pack(header_format, sequence_number, acknowledgment_number, flags)
 
 """
 Function to write chunks of file
-"""
-def write_chunks_to_file(file_chunks):
-    try:
-        with open('img/received_file.jpg', 'wb') as file:
-            for chunk in file_chunks:
-                file.write(chunk)
-    except Exception as e:
-        print(f"Error writing to file: {e}")
-        exit(1)
-
-"""
-Function for the server
 """
 def write_chunks_to_file(file_chunks):
     try:
