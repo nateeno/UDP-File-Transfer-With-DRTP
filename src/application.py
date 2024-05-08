@@ -1,4 +1,3 @@
-# 8.05.2024 
 import socket
 import argparse
 import struct  # for DRTP
@@ -187,8 +186,8 @@ if args.client:
 
 elif args.server:
     try:
-        print('Server started...')
-        
+        print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
+              
         start_time = time.time()
         data_received = False
 
@@ -211,13 +210,13 @@ elif args.server:
 
         while True: 
             try:
-                data, addr = sock.recvfrom(4096)  # buffer size is 4096 bytes
+                data, addr = sock.recvfrom(BUFFER_SIZE) 
                 if data == b'SYN':
                     print("SYN packet is received")
                     sock.sendto(b'SYN-ACK', addr)
                     print("SYN-ACK packet is sent")
 
-                    data, addr = sock.recvfrom(4096)
+                    data, addr = sock.recvfrom(BUFFER_SIZE)
                     if data == b'ACK':
                         print('Connection Established (yey)')
 
@@ -226,7 +225,7 @@ elif args.server:
 
                         # Start receiving file chunks
                         while True:
-                            data, addr = sock.recvfrom(4096)
+                            data, addr = sock.recvfrom(BUFFER_SIZE)
                             header = data[:header_size]  
                             sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)  
                             chunk = data[header_size:]  
@@ -294,7 +293,6 @@ elif args.server:
             
     except Exception as e:
         print(f"An error occurred: {e}")
-
 
 else:
     print('Invalid option. Be cool and use a command bro')
