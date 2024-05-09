@@ -109,19 +109,18 @@ if args.client:
         # Sliding window implementation
         base = 1
         nextseqnum = 1
-        window_size = WINDOW_SIZE
-        frame_buffer = [None] * window_size
+        frame_buffer = [None] * WINDOW_SIZE
 
         window_packets = []
         while base <= len(file_chunks):
-            while nextseqnum < base + window_size and nextseqnum <= len(file_chunks):
+            while nextseqnum < base + WINDOW_SIZE and nextseqnum <= len(file_chunks):
                 # Create DRTP header and packet
                 flags = 1 if nextseqnum == len(file_chunks) else 0  # set flag to 1 if this is the last chunk
                 header = struct.pack(header_format, nextseqnum, 0, flags)
                 packet = header + file_chunks[nextseqnum - 1]
                 
                 # Store the packet in the frame buffer
-                frame_buffer[(nextseqnum - 1) % window_size] = packet
+                frame_buffer[(nextseqnum - 1) % WINDOW_SIZE] = packet
 
                 # Add sequence number to the window
                 window_packets.append(nextseqnum)
@@ -148,7 +147,7 @@ if args.client:
                 # If timeout, retransmit all unacknowledged frames
                 print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
                 for i in range(base, nextseqnum):
-                    sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
+                    sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
                     print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
                     print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
 
@@ -163,13 +162,6 @@ if args.client:
         
         # End time
         end_time = time.time()
-
-        # Calculate elapsed time and throughput:
-        elapsed_time = end_time - start_time
-        file_size_bits = len(file_data) * 8
-        throughput = file_size_bits / elapsed_time
-        throughput_mbps = throughput / 1000000
-        print(f"The throughput is {throughput_mbps} Mbps")
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -277,7 +269,7 @@ elif args.server:
             total_file_size = sum(len(chunk) for chunk in file_chunks)  # calculate total file size
             file_size_bits = total_file_size * 8
             throughput = file_size_bits / elapsed_time
-            throughput_mbps = throughput / 1000000
+            throughput_mbps = round(throughput / 1000000, 2) 
             print(f"The throughput is {throughput_mbps} Mbps")
 
             # Call the function to write chunks to file after the while loop
