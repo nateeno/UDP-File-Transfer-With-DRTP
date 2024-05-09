@@ -109,6 +109,7 @@ if args.client:
         # Sliding window implementation
         base = 1
         nextseqnum = 1
+        #window_size = WINDOW_SIZE
         frame_buffer = [None] * WINDOW_SIZE
 
         window_packets = []
@@ -147,7 +148,7 @@ if args.client:
                 # If timeout, retransmit all unacknowledged frames
                 print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
                 for i in range(base, nextseqnum):
-                    sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
+                    sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
                     print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
                     print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
 
@@ -269,7 +270,7 @@ elif args.server:
             total_file_size = sum(len(chunk) for chunk in file_chunks)  # calculate total file size
             file_size_bits = total_file_size * 8
             throughput = file_size_bits / elapsed_time
-            throughput_mbps = round(throughput / 1000000, 2) 
+            throughput_mbps = round(throughput / 1000000, 2)  # round to 2 decimal places
             print(f"The throughput is {throughput_mbps} Mbps")
 
             # Call the function to write chunks to file after the while loop
