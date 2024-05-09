@@ -25,18 +25,26 @@ acknowledgment_number = 2
 flags = 2
 file_size = 0
 
+# Construct DRTP header
+header = struct.pack(header_format, sequence_number, acknowledgment_number, flags)
+
 # Parse command-line arguments and validate
 UDP_IP = args.ip or "127.0.0.1"
 UDP_PORT = args.port or 8080
 WINDOW_SIZE = args.window
 DISCARD_SEQ = args.discard
 
+"""
+Validation of command-line arguments
+"""
+
+if args.server and args.client:
+    print('Error: Cannot run the application in both server and client mode. Please choose one.')
+    exit(1)
+
 if not 1024 <= UDP_PORT <= 65535:
     print("Error: Port number must be in the range 1024-65535")
     exit(1)
-
-# Construct DRTP header
-header = struct.pack(header_format, sequence_number, acknowledgment_number, flags)
 
 """
 Function to write chunks of file
@@ -49,6 +57,7 @@ def write_chunks_to_file(file_chunks):
     except Exception as e:
         print(f"Error writing to file: {e}")
         exit(1)
+
 
 """
 Code for the client
