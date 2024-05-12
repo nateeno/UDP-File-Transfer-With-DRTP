@@ -109,9 +109,6 @@ if args.client:
             sock.close()
             exit()
 
-        # Start time
-        start_time = time.time()
-
         # Start GBN, after connection 
         sequence_number = 1
 
@@ -148,7 +145,6 @@ if args.client:
                 ack = struct.unpack('!H', data)[0]
                 print(f"ACK for packet {ack} received")
 
-
                 if ack >= base and ack < nextseqnum:
                     window_packets = [seq for seq in window_packets if seq > ack]
 
@@ -157,6 +153,7 @@ if args.client:
                 # If timeout, retransmit all unacknowledged frames
                 print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
                 for i in range(base, nextseqnum):
+                    # SE PÅ: 
                     sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
                     print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
                     print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
@@ -170,9 +167,6 @@ if args.client:
             print("Connection terminated")
             sock.close()  # Close the socket
         
-        # End time
-        end_time = time.time()
-
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -184,8 +178,7 @@ if args.client:
 elif args.server:
     try:
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
-
-        start_time = time.time()
+        
         data_received = False
 
         try:
@@ -197,12 +190,12 @@ elif args.server:
 
         expected_sequence_number = 1
 
-        buffer = {}  # Buffer to store packets
-        file_chunks = []  # Buffer to store file chunks
+        buffer = {}  
+        file_chunks = []  
 
         file_transfer_complete = False  
 
-         # Define the size of the DRTP header
+        # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
 
         while True: 
@@ -217,6 +210,7 @@ elif args.server:
                     if data == b'ACK':
                         print('Connection Established (yey)')
 
+                        # START TIME: 
                         start_time = time.time()
                         data_received = True
 
@@ -291,11 +285,10 @@ elif args.server:
                 sock.sendto(b'ACK', addr)
                 print("ACK packet is sent")
                 print("Connection terminated")
-                sock.close()  # Close the socket
+                sock.close()
             
     except Exception as e:
         print(f"An error occurred: {e}")
 
 else:
     print('Invalid option. Be cool and use a command bro')
-
