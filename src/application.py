@@ -245,6 +245,7 @@ elif args.server:
                         It receives the packets sent by the client, sends acknowledgments (ACKs) 
                         back to the client, and handles out-of-order packets by storing them in a buffer.
                         """
+
                         while True:
                             data, addr = sock.recvfrom(BUFFER_SIZE)
                             header = data[:header_size]
@@ -255,22 +256,21 @@ elif args.server:
                                 ack_dict[sequence_number] = struct.pack('!H', sequence_number)
 
                             # If sequence_number is what we expected, send an ACK back
-                            if sequence_number == expected_sequence_number:
-                                if sequence_number == DISCARD_SEQ:
-                                    print(f"Discarding packet with sequence number {DISCARD_SEQ}")
-                                    time.sleep(1.5)  # artificial delay
-                                else:
-                                    print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
+                            if sequence_number == DISCARD_SEQ:
+                                print(f"Discarding packet with sequence number {DISCARD_SEQ}")
+                                DISCARD_SEQ = float('inf')  # Set the discard sequence to an infinitely large number
+                            elif sequence_number == expected_sequence_number:
+                                print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
+                                file_chunks.append(chunk)  # Add the chunk to the list
 
-                                    file_chunks.append(chunk)  # Add the chunk to the list
+                                # Send ACK for N when sequence N+1 is received, where N is any sequence number
+                                if sequence_number != expected_sequence_number:
+                                    sock.sendto(ack_dict[sequence_number - 1], addr)
+                                    print(f"sending ack for the received {sequence_number - 1}")
 
-                                if sequence_number == 9:
-                                    sock.sendto(ack_dict[8], addr)  # Send ACK for 8 when sequence 9 is received
-                                    print(f"sending ack for the received {8}")
-
-                                if sequence_number != 8:  # Do not send ACK for 8 immediately
-                                    sock.sendto(ack_dict[sequence_number], addr)  # Send ACK
-                                    print(f"sending ack for the received {sequence_number}")
+                                # Send ACK for any sequence number
+                                sock.sendto(ack_dict[sequence_number], addr)
+                                print(f"sending ack for the received {sequence_number}")
 
                                 expected_sequence_number += 1
 
@@ -294,6 +294,9 @@ elif args.server:
                                 # If packet is out of order, store it in buffer
                                 buffer[sequence_number] = data
                                 print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
+
+                        if file_transfer_complete:
+                            break  
 
                 if file_transfer_complete:
                     break  
