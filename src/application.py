@@ -172,12 +172,12 @@ if args.client:
     """
     Code for the server!
     """
-
 elif args.server:
     try:
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
 
         data_received = False
+        ack_dict = {}  # Dictionary to store the sequence numbers and their ACKs
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP 
@@ -219,7 +219,9 @@ elif args.server:
                             sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
                             chunk = data[header_size:]
 
-                            # If sequence_number is what we expected, send an ACK back
+                            if sequence_number not in ack_dict:
+                                ack_dict[sequence_number] = struct.pack('!H', sequence_number)
+
                             # If sequence_number is what we expected, send an ACK back
                             if sequence_number == expected_sequence_number:
                                 if sequence_number == DISCARD_SEQ:
@@ -229,8 +231,13 @@ elif args.server:
                                     print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
 
                                     file_chunks.append(chunk)  # Add the chunk to the list
-                                    ack = struct.pack('!H', sequence_number)  # pack sequence number into binary
-                                    sock.sendto(ack, addr)  # send acknowledgment
+
+                                if sequence_number == 9:
+                                    sock.sendto(ack_dict[8], addr)  # Send ACK for 8 when sequence 9 is received
+                                    print(f"sending ack for the received {8}")
+
+                                if sequence_number != 8:  # Do not send ACK for 8 immediately
+                                    sock.sendto(ack_dict[sequence_number], addr)  # Send ACK
                                     print(f"sending ack for the received {sequence_number}")
 
                                 expected_sequence_number += 1
