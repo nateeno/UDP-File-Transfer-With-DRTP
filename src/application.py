@@ -153,8 +153,7 @@ if args.client:
                 # If timeout, retransmit all unacknowledged frames
                 print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
                 for i in range(base, nextseqnum):
-                    # SE PÅ: 
-                    sock.sendto(frame_buffer[(i - 1) % window_size], (UDP_IP, UDP_PORT))
+                    sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
                     print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
                     print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
 
@@ -178,7 +177,7 @@ if args.client:
 elif args.server:
     try:
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
-        
+
         data_received = False
 
         try:
