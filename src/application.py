@@ -154,7 +154,6 @@ if args.client:
                 print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
                 for i in range(base, nextseqnum):
                     sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
-                    print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {i} is resent, sliding window = {window_packets}")
                     print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
 
         # After sending all packets
@@ -221,19 +220,20 @@ elif args.server:
                             chunk = data[header_size:]
 
                             # If sequence_number is what we expected, send an ACK back
+                            # If sequence_number is what we expected, send an ACK back
                             if sequence_number == expected_sequence_number:
                                 if sequence_number == DISCARD_SEQ:
                                     print(f"Discarding packet with sequence number {DISCARD_SEQ}")
-                                    expected_sequence_number += 1
+                                    time.sleep(1.5)  # artificial delay
                                 else:
                                     print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
 
                                     file_chunks.append(chunk)  # Add the chunk to the list
                                     ack = struct.pack('!H', sequence_number)  # pack sequence number into binary
-                                    sock.sendto(ack, addr)  # send acknowledgement
+                                    sock.sendto(ack, addr)  # send acknowledgment
                                     print(f"sending ack for the received {sequence_number}")
 
-                                    expected_sequence_number += 1
+                                expected_sequence_number += 1
 
                                 # If this was the last packet, break the loop
                                 if flags == 1:
