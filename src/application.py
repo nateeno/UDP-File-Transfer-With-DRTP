@@ -66,12 +66,15 @@ Code for the client
 if args.client:
     try:
         print('Client started...')
-        print("UDP target IP: %s" % UDP_IP)
-        print("UDP target port: %s\n\n" % UDP_PORT)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         sock.settimeout(1.0)  # GBN timeout (1sec)
 
-        # Open the file in binary mode and read its contents
+        """
+        Description: 
+        This section of the code is responsible for opening the file to be sent, reading its 
+        content into a variable, and splitting the file data into chunks suitable for sending 
+        over a network connection.
+        """
         try:
             with open(args.file, 'rb') as file:
                 file_data = file.read()
@@ -91,23 +94,29 @@ if args.client:
         # Split the file data into chunks 
         file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
 
-        print(f'Number of packets: {len(file_chunks)}')
-        print("Connection Establishment Phase:")
+        print("Connection Establishment Phase:\n")
 
-        # Three-way handshake
+        """
+        Description: 
+        This section implements the connection establishment phase of the three-way handshake. 
+        The client sends a SYN packet to the server, waits for a SYN-ACK packet in response, 
+        and then sends an ACK packet to complete the handshake.
+        """
         sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
-        print("SYN packet is sent\n")
+        print("SYN packet is sent")
         try:
             data, addr = sock.recvfrom(BUFFER_SIZE)
             if data == b'SYN-ACK':
                 print("SYN-ACK packet is received")
                 sock.sendto(b'ACK', (UDP_IP, UDP_PORT))
                 print("ACK packet is sent")
-                print("Connection established")
+                print("Connection established\n")
         except socket.timeout:
             print("Connection failed. The server is not responding.")
             sock.close()
             exit()
+
+        print("\nData Transfer:\n")
 
         # Start GBN, after connection 
         sequence_number = 1
@@ -119,6 +128,13 @@ if args.client:
         frame_buffer = [None] * WINDOW_SIZE
 
         window_packets = []
+
+        """
+        Description: 
+        This section implements the Data Transfer phase. It uses the Go-Back-N protocol to 
+        send packets within a sliding window. If an acknowledgment (ACK) for a packet is 
+        not received within the timeout, the packet is retransmitted.
+        """
         while base <= len(file_chunks):
             while nextseqnum < base + WINDOW_SIZE and nextseqnum <= len(file_chunks):
                 # Create DRTP header and packet
@@ -155,6 +171,9 @@ if args.client:
                 for i in range(base, nextseqnum):
                     sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
                     print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
+
+        print("\nDATA Finished")
+        print("\nConnection Teardown Phase:")
 
         # After sending all packets
         sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
@@ -196,23 +215,36 @@ elif args.server:
         # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
 
+        """
+        Description: 
+        This section handles the connection establishment phase from the server's perspective. 
+        It listens for a SYN packet from the client, sends a SYN-ACK in response, and then waits 
+        for an ACK packet to complete the handshake.
+        """
         while True: 
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE) 
                 if data == b'SYN':
                     print("SYN packet is received")
                     sock.sendto(b'SYN-ACK', addr)
-                    print("SYN-ACK packet is sent")
+                    print("SYN-ACK packet is sent\n")
 
                     data, addr = sock.recvfrom(BUFFER_SIZE)
                     if data == b'ACK':
-                        print('Connection Established (yey)')
+                        print('ACK packet is received')
+                        print('Connection Established\n')
 
                         # START TIME: 
                         start_time = time.time()
                         data_received = True
 
                         # Start receiving file chunks
+                        """
+                        Description: 
+                        This section manages the Data Transfer phase from the server's perspective. 
+                        It receives the packets sent by the client, sends acknowledgments (ACKs) 
+                        back to the client, and handles out-of-order packets by storing them in a buffer.
+                        """
                         while True:
                             data, addr = sock.recvfrom(BUFFER_SIZE)
                             header = data[:header_size]
@@ -264,12 +296,17 @@ elif args.server:
                                 print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
 
                 if file_transfer_complete:
-                    print(f'Total number of packets received: {sequence_number}')
                     break  
 
             except KeyboardInterrupt:
                 print("\nServer interrupted by user. Shutting down...")
                 break
+        
+        """
+        Description: 
+        This section calculates the throughput of the file transfer by measuring the time 
+        taken and the total size of the file received.
+        """
         if data_received:
             # End time
             end_time = time.time()
@@ -280,17 +317,23 @@ elif args.server:
             file_size_bits = total_file_size * 8
             throughput = file_size_bits / elapsed_time
             throughput_mbps = round(throughput / 1000000, 2)  # round to 2 decimal places
-            print(f"The throughput is {throughput_mbps} Mbps")
 
             # Call the function to write chunks to file after the while loop
             write_chunks_to_file(file_chunks)
 
+            """
+            Description: 
+            We handles the connection termination phase by listening for a FIN 
+            packet from the client, sending an ACK in response, and then closing the socket.
+            """
+
             data, addr = sock.recvfrom(4096)
             if data == b'FIN':
-                print("FIN packet is received")
+                print("\nFIN packet is received")
                 sock.sendto(b'ACK', addr)
                 print("ACK packet is sent")
-                print("Connection terminated")
+                print(f"\nThe throughput is {throughput_mbps} Mbps")
+                print("Connection Closes")
                 sock.close()
             
     except Exception as e:
