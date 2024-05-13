@@ -60,6 +60,34 @@ def write_chunks_to_file(file_chunks):
 
 
 """
+Description: 
+This section of the code is responsible for opening the file to be sent, reading its 
+content into a variable, and splitting the file data into chunks suitable for sending 
+over a network connection.
+"""
+def read_file_chunks(args_file):
+    try:
+        with open(args_file, 'rb') as file:
+            file_data = file.read()
+    except FileNotFoundError:
+        print(f"File {args.file} not found. Please check the file path and try again.")
+        exit(1)
+    except Exception as e:
+        print(f"An error occurred while opening the file: {e}")
+        exit(1)
+
+    # Define the size of the DRTP header
+    header_size = struct.calcsize(header_format)
+
+    # Calculate the size of the data chunk
+    chunk_size = MAX_PACKET_SIZE - header_size
+
+    # Split the file data into chunks 
+    file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
+    
+    return file_chunks
+
+"""
 Code for the client
 """
 
@@ -69,30 +97,8 @@ if args.client:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         sock.settimeout(1.0)  # GBN timeout (1sec)
 
-        """
-        Description: 
-        This section of the code is responsible for opening the file to be sent, reading its 
-        content into a variable, and splitting the file data into chunks suitable for sending 
-        over a network connection.
-        """
-        try:
-            with open(args.file, 'rb') as file:
-                file_data = file.read()
-        except FileNotFoundError:
-            print(f"File {args.file} not found. Please check the file path and try again.")
-            exit(1)
-        except Exception as e:
-            print(f"An error occurred while opening the file: {e}")
-            exit(1)
-
-        # Define the size of the DRTP header
-        header_size = struct.calcsize(header_format)
-
-        # Calculate the size of the data chunk
-        chunk_size = MAX_PACKET_SIZE - header_size
-
-        # Split the file data into chunks 
-        file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
+        # Read the file  
+        file_chunks = read_file_chunks(args.file)
 
         print("Connection Establishment Phase:\n")
 
@@ -182,7 +188,7 @@ if args.client:
         if data == b'ACK':
             print("ACK packet is received")
             print("Connection terminated")
-            sock.close()  # Close the socket
+            sock.close()  
         
     except Exception as e:
         print(f"An error occurred: {e}")
