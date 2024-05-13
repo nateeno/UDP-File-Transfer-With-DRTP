@@ -178,7 +178,7 @@ if args.client:
         # After sending all packets
         sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
         print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
-        data, addr = sock.recvfrom(4096)
+        data, addr = sock.recvfrom(BUFFER_SIZE)
         if data == b'ACK':
             print("ACK packet is received")
             print("Connection terminated")
@@ -330,7 +330,7 @@ elif args.server:
             packet from the client, sending an ACK in response, and then closing the socket.
             """
 
-            data, addr = sock.recvfrom(4096)
+            data, addr = sock.recvfrom(BUFFER_SIZE)
             if data == b'FIN':
                 print("\nFIN packet is received")
                 sock.sendto(b'ACK', addr)
