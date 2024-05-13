@@ -40,23 +40,18 @@ def write_chunks_to_file(file_chunks):
         exit(1)
 
 
+# ---------------- CODE FOR CLIENT 
+
 def client(args):
     UDP_IP = args.ip
     UDP_PORT = args.port
     WINDOW_SIZE = args.window
-    DISCARD_SEQ = args.discard
 
     try:
         print('Client started...')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         sock.settimeout(1.0)  # GBN timeout (1sec)
 
-        """
-        Description: 
-        This section of the code is responsible for opening the file to be sent, reading its 
-        content into a variable, and splitting the file data into chunks suitable for sending 
-        over a network connection.
-        """
         try:
             with open(args.file, 'rb') as file:
                 file_data = file.read()
@@ -78,12 +73,6 @@ def client(args):
 
         print("Connection Establishment Phase:\n")
 
-        """
-        Description: 
-        This section implements the connection establishment phase of the three-way handshake. 
-        The client sends a SYN packet to the server, waits for a SYN-ACK packet in response, 
-        and then sends an ACK packet to complete the handshake.
-        """
         sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
         print("SYN packet is sent")
         try:
@@ -100,9 +89,6 @@ def client(args):
 
         print("\nData Transfer:\n")
 
-        # Start GBN, after connection 
-        sequence_number = 1
-
         # Sliding window implementation
         base = 1
         nextseqnum = 1
@@ -111,12 +97,6 @@ def client(args):
 
         window_packets = []
 
-        """
-        Description: 
-        This section implements the Data Transfer phase. It uses the Go-Back-N protocol to 
-        send packets within a sliding window. If an acknowledgment (ACK) for a packet is 
-        not received within the timeout, the packet is retransmitted.
-        """
         while base <= len(file_chunks):
             while nextseqnum < base + WINDOW_SIZE and nextseqnum <= len(file_chunks):
                 # Create DRTP header and packet
@@ -170,11 +150,11 @@ def client(args):
         print(f"An error occurred: {e}")
     pass
 
+# ---------------- CODE FOR SERVER 
 
 def server(args):
     UDP_IP = args.ip
     UDP_PORT = args.port
-    WINDOW_SIZE = args.window
     DISCARD_SEQ = args.discard
 
     try:
@@ -200,12 +180,6 @@ def server(args):
         # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
 
-        """
-        Description: 
-        This section handles the connection establishment phase from the server's perspective. 
-        It listens for a SYN packet from the client, sends a SYN-ACK in response, and then waits 
-        for an ACK packet to complete the handshake.
-        """
         while True: 
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE) 
@@ -224,12 +198,6 @@ def server(args):
                         data_received = True
 
                         # Start receiving file chunks
-                        """
-                        Description: 
-                        This section manages the Data Transfer phase from the server's perspective. 
-                        It receives the packets sent by the client, sends acknowledgments (ACKs) 
-                        back to the client, and handles out-of-order packets by storing them in a buffer.
-                        """
 
                         while True:
                             data, addr = sock.recvfrom(BUFFER_SIZE)
@@ -290,11 +258,6 @@ def server(args):
                 print("\nServer interrupted by user. Shutting down...")
                 break
         
-        """
-        Description: 
-        This section calculates the throughput of the file transfer by measuring the time 
-        taken and the total size of the file received.
-        """
         if data_received:
             # End time
             end_time = time.time()
@@ -308,12 +271,6 @@ def server(args):
 
             # Call the function to write chunks to file after the while loop
             write_chunks_to_file(file_chunks)
-
-            """
-            Description: 
-            We handles the connection termination phase by listening for a FIN 
-            packet from the client, sending an ACK in response, and then closing the socket.
-            """
 
             data, addr = sock.recvfrom(BUFFER_SIZE)
             if data == b'FIN':
