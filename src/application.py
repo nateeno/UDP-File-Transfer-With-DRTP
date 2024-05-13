@@ -34,6 +34,7 @@ UDP_PORT = args.port or 8080
 WINDOW_SIZE = args.window
 DISCARD_SEQ = args.discard
 
+
 """
 Validation of command-line arguments
 """
@@ -45,6 +46,8 @@ if args.server and args.client:
 if not 1024 <= UDP_PORT <= 65535:
     print("Error: Port number must be in the range 1024-65535")
     exit(1)
+
+# ------- FUNCTIONS
 
 """
 Function to write chunks of file
@@ -86,6 +89,70 @@ def read_file_chunks(args_file):
     file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
     
     return file_chunks
+
+def establish_connection(sock, BUFFER_SIZE):
+    data, addr = sock.recvfrom(BUFFER_SIZE) 
+    if data == b'SYN':
+        print("SYN packet is received")
+        sock.sendto(b'SYN-ACK', addr)
+        print("SYN-ACK packet is sent\n")
+        
+        data, addr = sock.recvfrom(BUFFER_SIZE)
+        if data == b'ACK':
+            print('ACK packet is received')
+            print('Connection Established\n')
+            return True
+    return False
+
+def manage_data_transfer(sock, BUFFER_SIZE, header_size, ack_dict, expected_sequence_number, DISCARD_SEQ, buffer, file_chunks):
+    data, addr = sock.recvfrom(BUFFER_SIZE)
+    header = data[:header_size]
+    sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
+    chunk = data[header_size:]
+
+    if sequence_number not in ack_dict:
+        ack_dict[sequence_number] = struct.pack('!H', sequence_number)
+
+    # If sequence_number is what we expected, send an ACK back
+    if sequence_number == DISCARD_SEQ:
+        print(f"Discarding packet with sequence number {DISCARD_SEQ}")
+        DISCARD_SEQ = float('inf')  # Set the discard sequence to an infinitely large number
+    elif sequence_number == expected_sequence_number:
+        print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
+        file_chunks.append(chunk)  # Add the chunk to the list
+
+        # Send ACK for N when sequence N+1 is received, where N is any sequence number
+        if sequence_number != expected_sequence_number:
+            sock.sendto(ack_dict[sequence_number - 1], addr)
+            print(f"sending ack for the received {sequence_number - 1}")
+
+        # Send ACK for any sequence number
+        sock.sendto(ack_dict[sequence_number], addr)
+        print(f"sending ack for the received {sequence_number}")
+
+        expected_sequence_number += 1
+
+        # If this was the last packet, break the loop
+        if flags == 1:
+            return True, expected_sequence_number
+
+        # Check if the next packet is in the buffer
+        while expected_sequence_number in buffer:
+            data = buffer.pop(expected_sequence_number)
+            header = data[:6]
+            sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
+            chunk = data[6:]
+            file_chunks.append(chunk)  # Add the chunk to the list
+            expected_sequence_number += 1
+    elif sequence_number < expected_sequence_number or sequence_number in buffer:
+        # If packet is a duplicate, discard it
+        return False, expected_sequence_number
+    else:
+        # If packet is out of order, store it in buffer
+        buffer[sequence_number] = data
+        print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
+        return False, expected_sequence_number
+
 
 """
 Code for the client
@@ -197,12 +264,14 @@ if args.client:
     """
     Code for the server!
     """
+
 elif args.server:
     try:
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
 
         data_received = False
         ack_dict = {}  # Dictionary to store the sequence numbers and their ACKs
+        file_transfer_complete = False
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP 
@@ -212,97 +281,26 @@ elif args.server:
             exit(1)
 
         expected_sequence_number = 1
-
         buffer = {}  
         file_chunks = []  
-
-        file_transfer_complete = False  
 
         # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
 
-        """
-        Description: 
-        This section handles the connection establishment phase from the server's perspective. 
-        It listens for a SYN packet from the client, sends a SYN-ACK in response, and then waits 
-        for an ACK packet to complete the handshake.
-        """
         while True: 
             try:
-                data, addr = sock.recvfrom(BUFFER_SIZE) 
-                if data == b'SYN':
-                    print("SYN packet is received")
-                    sock.sendto(b'SYN-ACK', addr)
-                    print("SYN-ACK packet is sent\n")
+                connection_established = establish_connection(sock, BUFFER_SIZE)
+                if connection_established:
+                    # START TIME: 
+                    start_time = time.time()
+                    data_received = True
 
-                    data, addr = sock.recvfrom(BUFFER_SIZE)
-                    if data == b'ACK':
-                        print('ACK packet is received')
-                        print('Connection Established\n')
-
-                        # START TIME: 
-                        start_time = time.time()
-                        data_received = True
-
-                        # Start receiving file chunks
-                        """
-                        Description: 
-                        This section manages the Data Transfer phase from the server's perspective. 
-                        It receives the packets sent by the client, sends acknowledgments (ACKs) 
-                        back to the client, and handles out-of-order packets by storing them in a buffer.
-                        """
-
-                        while True:
-                            data, addr = sock.recvfrom(BUFFER_SIZE)
-                            header = data[:header_size]
-                            sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
-                            chunk = data[header_size:]
-
-                            if sequence_number not in ack_dict:
-                                ack_dict[sequence_number] = struct.pack('!H', sequence_number)
-
-                            # If sequence_number is what we expected, send an ACK back
-                            if sequence_number == DISCARD_SEQ:
-                                print(f"Discarding packet with sequence number {DISCARD_SEQ}")
-                                DISCARD_SEQ = float('inf')  # Set the discard sequence to an infinitely large number
-                            elif sequence_number == expected_sequence_number:
-                                print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
-                                file_chunks.append(chunk)  # Add the chunk to the list
-
-                                # Send ACK for N when sequence N+1 is received, where N is any sequence number
-                                if sequence_number != expected_sequence_number:
-                                    sock.sendto(ack_dict[sequence_number - 1], addr)
-                                    print(f"sending ack for the received {sequence_number - 1}")
-
-                                # Send ACK for any sequence number
-                                sock.sendto(ack_dict[sequence_number], addr)
-                                print(f"sending ack for the received {sequence_number}")
-
-                                expected_sequence_number += 1
-
-                                # If this was the last packet, break the loop
-                                if flags == 1:
-                                    file_transfer_complete = True  
-                                    break
-
-                                # Check if the next packet is in the buffer
-                                while expected_sequence_number in buffer:
-                                    data = buffer.pop(expected_sequence_number)
-                                    header = data[:6]
-                                    sequence_number, acknowledgment_number, flags = struct.unpack(header_format, header)
-                                    chunk = data[6:]
-                                    file_chunks.append(chunk)  # Add the chunk to the list
-                                    expected_sequence_number += 1
-                            elif sequence_number < expected_sequence_number or sequence_number in buffer:
-                                # If packet is a duplicate, discard it
-                                continue
-                            else:
-                                # If packet is out of order, store it in buffer
-                                buffer[sequence_number] = data
-                                print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
-
+                    # Start receiving file chunks
+                    while True:
+                        file_transfer_complete, expected_sequence_number = manage_data_transfer(
+                            sock, BUFFER_SIZE, header_size, ack_dict, expected_sequence_number, DISCARD_SEQ, buffer, file_chunks)
                         if file_transfer_complete:
-                            break  
+                            break
 
                 if file_transfer_complete:
                     break  
@@ -310,12 +308,7 @@ elif args.server:
             except KeyboardInterrupt:
                 print("\nServer interrupted by user. Shutting down...")
                 break
-        
-        """
-        Description: 
-        This section calculates the throughput of the file transfer by measuring the time 
-        taken and the total size of the file received.
-        """
+
         if data_received:
             # End time
             end_time = time.time()
