@@ -12,7 +12,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='UDP client and server')
     parser.add_argument('--client', '-c', action='store_true', help='Run as client')
     parser.add_argument('--server', '-s', action='store_true', help='Run as server')
-    parser.add_argument('--ip', '-i', default='10.0.0.2', help='IP address of the server, default is 127.0.0.1')
+    parser.add_argument('--ip', '-i', default='10.0.1.2', help='IP address of the server, default is 10.0.1.2')
     parser.add_argument('--port', '-p', type=int, default=8080, help='UDP port, default is 8080, should be in range 1024-65535')
     parser.add_argument('--file', '-f', type=str, help='File name')
     parser.add_argument('--window', '-w', type=int, default=3, help='Sliding window size')
@@ -31,4 +31,8 @@ def validate_args(args):
     
     if not 1 <= args.window <= 100:
         print("Error: Window size must be in the range 1-100")
+        exit(1)
+
+    if args.client and not args.file:
+        print("Error: A file must be specified with the --file option in client mode.")
         exit(1)
