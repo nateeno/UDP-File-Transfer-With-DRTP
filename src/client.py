@@ -1,6 +1,7 @@
 import socket
 import struct
 import time
+import os
 
 from utils import *
 
@@ -14,13 +15,13 @@ def read_file_data(file_path):
     Returns:
         bytes: The data read from the file.
     """
+    if not os.path.isfile(file_path):
+        print(f"Error: File {file_path} does not exist.")
+        exit(1)
     try:
         with open(file_path, 'rb') as file:
             file_data = file.read()
         return file_data
-    except FileNotFoundError:
-        print(f"File {file_path} not found. Please check the file path and try again.")
-        exit(1)
     except Exception as e:
         print(f"An error occurred while opening the file: {e}")
         exit(1)
@@ -87,7 +88,8 @@ def client(args):
 
         connection_established = handle_connection(sock, BUFFER_SIZE, UDP_IP, UDP_PORT)
         if not connection_established:
-            pass
+            print("Error: Failed to establish connection.")
+            exit(1)
 
         print("\nData Transfer:\n")
 

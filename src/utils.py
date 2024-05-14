@@ -28,3 +28,7 @@ def validate_args(args):
     if not 1024 <= args.port <= 65535:
         print("Error: Port number must be in the range 1024-65535")
         exit(1)
+    
+    if not 1 <= args.window <= 100:
+        print("Error: Window size must be in the range 1-100")
+        exit(1)

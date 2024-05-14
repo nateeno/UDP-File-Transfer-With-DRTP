@@ -4,7 +4,6 @@ import time
 
 from utils import *
 
-
 # ---------------- CODE FOR SERVER 
 
 def init_socket(ip, port):
