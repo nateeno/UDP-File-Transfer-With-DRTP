@@ -8,7 +8,14 @@ MAX_PACKET_SIZE = 1000
 header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
 
 def get_args():
-    # Initialize argument parser
+    """
+    Initializes the argument parser and parses the command line arguments.
+    
+    The function supports the following arguments: client, server, ip, file, window, discard
+    
+    Returns:
+        argparse.Namespace: The command line arguments.
+    """
     parser = argparse.ArgumentParser(description='UDP client and server')
     parser.add_argument('--client', '-c', action='store_true', help='Run as client')
     parser.add_argument('--server', '-s', action='store_true', help='Run as server')
@@ -21,18 +28,35 @@ def get_args():
 
 
 def validate_args(args):
+    """
+    Validates the command line arguments for the application.
+    Args:
+        args (argparse.Namespace): The command line arguments parsed by argparse.
+    Returns:
+        None. If any of the arguments are invalid, the function will print an error message and terminate the program.
+    """
+
+    # The application cannot run in both server and client mode at the same time
     if args.server and args.client:
         print('Error: Cannot run the application in both server and client mode. Please choose one.')
         exit(1)
 
+    # The port number must be in the range 1024-65535.
     if not 1024 <= args.port <= 65535:
         print("Error: Port number must be in the range 1024-65535")
         exit(1)
     
+    # The window size must be in the range 1-100.
     if not 1 <= args.window <= 100:
         print("Error: Window size must be in the range 1-100")
         exit(1)
 
+    # If the application is running in client mode, a file must be specified.
     if args.client and not args.file:
         print("Error: A file must be specified with the --file option in client mode.")
+        exit(1)
+    
+    # If the application is running in server mode, a file should not be specified.
+    if args.server and args.file:
+        print("Error: Cannot run server and file. Please use file with client")
         exit(1)
