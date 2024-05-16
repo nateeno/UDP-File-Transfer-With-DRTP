@@ -4,7 +4,7 @@ import time
 
 from utils import *
 
-# ---------------- CODE FOR SERVER 
+# ---------------- UTILITY FUNCTIONS FOR SERVER 
 
 def init_socket(ip, port):
     """
@@ -60,7 +60,8 @@ def handle_syn(sock, addr):
         addr (tuple): The address of the recipient.
     """
     print("SYN packet is received")
-    sock.sendto(b'SYN-ACK', addr)
+    syn_ack_header = struct.pack(header_format, 0, 0, SYN_FLAG | ACK_FLAG)
+    sock.sendto(syn_ack_header, addr)
     print("SYN-ACK packet is sent\n")
 
 
@@ -115,10 +116,12 @@ def handle_fin(sock, buffer_size, throughput_mbps):
         throughput_mbps (float): The throughput of the transfer.
     """
     data, addr = sock.recvfrom(buffer_size)
-    if data == b'FIN':
+    _, _, flags = struct.unpack(header_format, data)
+    if flags == FIN_FLAG:
         print("\nFIN packet is received")
-        sock.sendto(b'ACK', addr)
-        print("ACK packet is sent")
+        ack_header = struct.pack(header_format, 0, 0, ACK_FLAG)
+        sock.sendto(ack_header, addr)
+        print("FIN ACK packet is sent")
         print(f"\nThe throughput is {throughput_mbps} Mbps")
         print("Connection Closes")
         sock.close()
@@ -126,11 +129,6 @@ def handle_fin(sock, buffer_size, throughput_mbps):
 # ---------------- SERVER 
 
 def server(args):
-    """
-    Starts a UDP server and handles file transfer from a client.
-    Args:
-        args (argparse.Namespace): The command line arguments.
-    """
     UDP_IP = args.ip
     UDP_PORT = args.port
     DISCARD_SEQ = args.discard
@@ -139,7 +137,7 @@ def server(args):
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
 
         data_received = False
-        ack_dict = {}  # Dictionary to store the sequence numbers and their ACKs
+        ack_dict = {} 
 
         sock = init_socket(UDP_IP, UDP_PORT)
 
@@ -150,61 +148,51 @@ def server(args):
 
         file_transfer_complete = False  
 
-        # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
 
         while True: 
             try:
                 data, addr = receive_data(sock, BUFFER_SIZE)
-                if data == b'SYN':
+
+                _, _, flags = struct.unpack(header_format, data)
+                if flags == SYN_FLAG:
                     handle_syn(sock, addr)
 
                     data, addr = receive_data(sock, BUFFER_SIZE)
-                    if data == b'ACK':
+                    _, _, flags = struct.unpack(header_format, data)
+                    if flags == ACK_FLAG:
                         print('ACK packet is received')
                         print('Connection Established\n')
 
-                        # START TIME: 
                         start_time = time.time()
                         data_received = True
-
-                        # Start receiving file chunks
 
                         while True:
                             data, addr = receive_data(sock, BUFFER_SIZE)
                             sequence_number, acknowledgment_number, flags, chunk = parse_data(data, header_size)
 
                             if sequence_number not in ack_dict:
-                                ack_dict[sequence_number] = struct.pack('!HHH', sequence_number)
+                                ack_dict[sequence_number] = struct.pack('!HHH', sequence_number, 0, 0)
 
-                            # If sequence_number is what we expected, send an ACK back
                             if sequence_number == DISCARD_SEQ:
                                 print(f"Discarding packet with sequence number {DISCARD_SEQ}")
-                                DISCARD_SEQ = float('inf')  # Set the discard sequence to an infinitely large number
+                                DISCARD_SEQ = float('inf')  
                             elif sequence_number == expected_sequence_number:
                                 print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
-                                file_chunks.append(chunk)  # Add the chunk to the list
-
+                                file_chunks.append(chunk)  
                                 send_acknowledgement(sock, addr, sequence_number, ack_dict)
-
                                 expected_sequence_number += 1
-
-                                # If this was the last packet, break the loop
-                                if flags == 1:
+                                if flags == FIN_FLAG:  
                                     file_transfer_complete = True  
                                     break
-
-                                # Check if the next packet is in the buffer
                                 while expected_sequence_number in buffer:
                                     data = buffer.pop(expected_sequence_number)
                                     sequence_number, acknowledgment_number, flags, chunk = parse_data(data, header_size)
-                                    file_chunks.append(chunk)  # Add the chunk to the list
+                                    file_chunks.append(chunk)  
                                     expected_sequence_number += 1
                             elif sequence_number < expected_sequence_number or sequence_number in buffer:
-                                # If packet is a duplicate, discard it
                                 continue
                             else:
-                                # If packet is out of order, store it in buffer
                                 buffer[sequence_number] = data
                                 print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
 
@@ -216,19 +204,13 @@ def server(args):
                 break
         
         if data_received:
-            # End time
             end_time = time.time()
-
-            # Calculate elapsed time and throughput:
             elapsed_time = end_time - start_time
-            total_file_size = sum(len(chunk) for chunk in file_chunks)  # calculate total file size
+            total_file_size = sum(len(chunk) for chunk in file_chunks)  
             file_size_bits = total_file_size * 8
             throughput_mbps = calculate_throughput(elapsed_time, file_size_bits)
-
-            # Call the function to write chunks to file after the while loop
             write_chunks_to_file(file_chunks)
-
-            handle_fin(sock, BUFFER_SIZE, throughput_mbps)
+            handle_fin(sock, BUFFER_SIZE, throughput_mbps)  
             
     except Exception as e:
         print(f"An error occurred: {e}")

@@ -5,7 +5,7 @@ import os
 
 from utils import *
 
-# ---------------- CODE FOR CLIENT 
+# ---------------- UTILITY FUNCTIONS FOR CLIENT  
 
 def read_file_data(file_path):
     """
@@ -26,8 +26,6 @@ def read_file_data(file_path):
         print(f"An error occurred while opening the file: {e}")
         exit(1)
 
-SYN_ACK = b'SYN-ACK'
-ACK = b'ACK'
 
 def handle_connection(sock, buffer_size, server_ip, server_port):
     """
@@ -40,12 +38,14 @@ def handle_connection(sock, buffer_size, server_ip, server_port):
     Returns:
         bool: True if the connection is established, False otherwise.
     """
-    global SYN_ACK, ACK
     try:
         data, _ = sock.recvfrom(buffer_size)
-        if data == SYN_ACK:
+        _, _, flags = struct.unpack('!HHH', data)  # Unpack the flags
+        if flags == (SYN_FLAG | ACK_FLAG):  # Check for SYN-ACK flag
             print("SYN-ACK packet is received")
-            sock.sendto(ACK, (server_ip, server_port))
+            # Send ACK flag instead of 'ACK' string
+            ack_header = struct.pack(header_format, 0, 0, ACK_FLAG)
+            sock.sendto(ack_header, (server_ip, server_port))
             print("ACK packet is sent")
             print("Connection established\n")
             return True
@@ -83,7 +83,8 @@ def client(args):
 
         print("Connection Establishment Phase:\n")
 
-        sock.sendto(b'SYN', (UDP_IP, UDP_PORT))
+        syn_header = struct.pack(header_format, 0, 0, SYN_FLAG)
+        sock.sendto(syn_header, (UDP_IP, UDP_PORT))
         print("SYN packet is sent")
 
         connection_established = handle_connection(sock, BUFFER_SIZE, UDP_IP, UDP_PORT)
@@ -96,40 +97,27 @@ def client(args):
         # Sliding window implementation
         base = 1
         nextseqnum = 1
-        #window_size = WINDOW_SIZE
         frame_buffer = [None] * WINDOW_SIZE
-
         window_packets = []
 
         while base <= len(file_chunks):
             while nextseqnum < base + WINDOW_SIZE and nextseqnum <= len(file_chunks):
-                # Create DRTP header and packet
-                flags = 1 if nextseqnum == len(file_chunks) else 0  # set flag to 1 if this is the last chunk
+                flags = FIN_FLAG if nextseqnum == len(file_chunks) else ACK_FLAG  # Change 2: Use flags
                 header = struct.pack(header_format, nextseqnum, 0, flags)
                 packet = header + file_chunks[nextseqnum - 1]
-                
-                # Store the packet in the frame buffer
                 frame_buffer[(nextseqnum - 1) % WINDOW_SIZE] = packet
-
-                # Add sequence number to the window
                 window_packets.append(nextseqnum)
-
-                # Send packet and wait for ACK
                 sock.sendto(packet, (UDP_IP, UDP_PORT))
                 print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
-
                 nextseqnum += 1
 
             try:
                 data, _ = sock.recvfrom(BUFFER_SIZE)
-
-                # Unpack the received data into an integer
-                ack = struct.unpack('!HHH', data)[0]
+                ack, _, _ = struct.unpack('!HHH', data)  # Change 3: Unpack flags as well
                 print(f"ACK for packet {ack} received")
 
                 if ack >= base and ack < nextseqnum:
                     window_packets = [seq for seq in window_packets if seq > ack]
-
                     base = ack + 1
             except socket.timeout:
                 # If timeout, retransmit all unacknowledged frames
@@ -142,13 +130,15 @@ def client(args):
         print("\nConnection Teardown Phase:")
 
         # After sending all packets
-        sock.sendto(b'FIN', (UDP_IP, UDP_PORT))
+        fin_header = struct.pack(header_format, 0, 0, FIN_FLAG)
+        sock.sendto(fin_header, (UDP_IP, UDP_PORT))
         print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
+
         data, addr = sock.recvfrom(BUFFER_SIZE)
         if data == b'ACK':
             print("ACK packet is received")
             print("Connection terminated")
-            sock.close()  # Close the socket
+            sock.close()
         
     except Exception as e:
         print(f"An error occurred: {e}")

@@ -3,9 +3,19 @@ import socket
 import struct
 import time
 
+
 BUFFER_SIZE = 4096
 MAX_PACKET_SIZE = 1000
+
+# ---------------- HEADER CODE 
+
 header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
+ACK_FLAG = 1 << 2   # 4
+SYN_FLAG = 1 << 3   # 8
+FIN_FLAG = 1 << 1   # 2
+
+
+# ---------------- SOME MAIN CODE
 
 def get_args():
     """
