@@ -175,7 +175,7 @@ def server(args):
                             sequence_number, acknowledgment_number, flags, chunk = parse_data(data, header_size)
 
                             if sequence_number not in ack_dict:
-                                ack_dict[sequence_number] = struct.pack('!H', sequence_number)
+                                ack_dict[sequence_number] = struct.pack('!HHH', sequence_number)
 
                             # If sequence_number is what we expected, send an ACK back
                             if sequence_number == DISCARD_SEQ:

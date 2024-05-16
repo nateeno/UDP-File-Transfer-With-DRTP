@@ -42,7 +42,7 @@ def handle_connection(sock, buffer_size, server_ip, server_port):
     """
     global SYN_ACK, ACK
     try:
-        data, addr = sock.recvfrom(buffer_size)
+        data, _ = sock.recvfrom(buffer_size)
         if data == SYN_ACK:
             print("SYN-ACK packet is received")
             sock.sendto(ACK, (server_ip, server_port))
@@ -121,10 +121,10 @@ def client(args):
                 nextseqnum += 1
 
             try:
-                data, addr = sock.recvfrom(BUFFER_SIZE)
+                data, _ = sock.recvfrom(BUFFER_SIZE)
 
                 # Unpack the received data into an integer
-                ack = struct.unpack('!H', data)[0]
+                ack = struct.unpack('!HHH', data)[0]
                 print(f"ACK for packet {ack} received")
 
                 if ack >= base and ack < nextseqnum:
