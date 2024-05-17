@@ -169,7 +169,7 @@ def server(args):
 
                         while True:
                             data, addr = receive_data(sock, BUFFER_SIZE)
-                            sequence_number, acknowledgment_number, flags, chunk = parse_data(data, header_size)
+                            sequence_number, _, flags, chunk = parse_data(data, header_size)
 
                             if sequence_number not in ack_dict:
                                 ack_dict[sequence_number] = struct.pack('!HHH', sequence_number, 0, 0)
@@ -187,7 +187,7 @@ def server(args):
                                     break
                                 while expected_sequence_number in buffer:
                                     data = buffer.pop(expected_sequence_number)
-                                    sequence_number, acknowledgment_number, flags, chunk = parse_data(data, header_size)
+                                    sequence_number, _, flags, chunk = parse_data(data, header_size)
                                     file_chunks.append(chunk)  
                                     expected_sequence_number += 1
                             elif sequence_number < expected_sequence_number or sequence_number in buffer:

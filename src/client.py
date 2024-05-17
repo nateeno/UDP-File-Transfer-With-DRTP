@@ -43,7 +43,6 @@ def handle_connection(sock, buffer_size, server_ip, server_port):
         _, _, flags = struct.unpack('!HHH', data)  # Unpack the flags
         if flags == (SYN_FLAG | ACK_FLAG):  # Check for SYN-ACK flag
             print("SYN-ACK packet is received")
-            # Send ACK flag instead of 'ACK' string
             ack_header = struct.pack(header_format, 0, 0, ACK_FLAG)
             sock.sendto(ack_header, (server_ip, server_port))
             print("ACK packet is sent")
@@ -71,14 +70,8 @@ def client(args):
         sock.settimeout(1.0)  # GBN timeout (1sec)
 
         file_data = read_file_data(args.file)
-
-        # Define the size of the DRTP header
         header_size = struct.calcsize(header_format)
-
-        # Calculate the size of the data chunk
         chunk_size = MAX_PACKET_SIZE - header_size
-
-        # Split the file data into chunks 
         file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
 
         print("Connection Establishment Phase:\n")
@@ -102,7 +95,7 @@ def client(args):
 
         while base <= len(file_chunks):
             while nextseqnum < base + WINDOW_SIZE and nextseqnum <= len(file_chunks):
-                flags = FIN_FLAG if nextseqnum == len(file_chunks) else ACK_FLAG  # Change 2: Use flags
+                flags = FIN_FLAG if nextseqnum == len(file_chunks) else ACK_FLAG 
                 header = struct.pack(header_format, nextseqnum, 0, flags)
                 packet = header + file_chunks[nextseqnum - 1]
                 frame_buffer[(nextseqnum - 1) % WINDOW_SIZE] = packet
@@ -113,7 +106,7 @@ def client(args):
 
             try:
                 data, _ = sock.recvfrom(BUFFER_SIZE)
-                ack, _, _ = struct.unpack('!HHH', data)  # Change 3: Unpack flags as well
+                ack, _, _ = struct.unpack('!HHH', data)  
                 print(f"ACK for packet {ack} received")
 
                 if ack >= base and ack < nextseqnum:
@@ -134,7 +127,7 @@ def client(args):
         sock.sendto(fin_header, (UDP_IP, UDP_PORT))
         print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
 
-        data, addr = sock.recvfrom(BUFFER_SIZE)
+        data, _ = sock.recvfrom(BUFFER_SIZE)
         if data == b'ACK':
             print("ACK packet is received")
             print("Connection terminated")
