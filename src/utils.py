@@ -76,3 +76,6 @@ def validate_args(args):
     if args.server and args.file:
         print("Error: Cannot run server and file. Please use file with client")
         exit(1)
+
+
+# now?
