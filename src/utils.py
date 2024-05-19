@@ -21,7 +21,7 @@ SYN_FLAG = 1 << 3   # Flag for SYN signal
 FIN_FLAG = 1 << 1   # Flag for FIN signal
 
 # ---------------- MAIN CODE ---------------- 
-# This section will contain primary functionality of the program. Code goes here.
+# This section will contain primary functionality of the program
 
 def get_args():
     """
