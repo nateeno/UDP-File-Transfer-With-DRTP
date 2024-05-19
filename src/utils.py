@@ -74,8 +74,10 @@ def validate_args(args):
     
     # If the application is running in server mode, a file should not be specified.
     if args.server and args.file:
-        print("Error: Cannot run server and file. Please use file with client")
+        print("Error: Cannot specify a file with the --file option in server mode.")
         exit(1)
 
-
-# now?
+    # The client mode should not receive a discard sequence number argument
+    if args.client and args.discard:
+        print("Error: Client mode should not receive a --discard argument.")
+        exit(1)

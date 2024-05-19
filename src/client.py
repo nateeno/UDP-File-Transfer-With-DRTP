@@ -39,7 +39,7 @@ def handle_connection(sock, buffer_size, server_ip, server_port):
     try:
         data, _ = sock.recvfrom(buffer_size)
         _, _, flags = struct.unpack('!HHH', data)  # Unpack the flags
-        if flags == (SYN_FLAG | ACK_FLAG):  # Check for SYN-ACK flag
+        if flags == (SYN_FLAG | ACK_FLAG):         # Check for SYN-ACK flag
             print("SYN-ACK packet is received")
             ack_header = struct.pack(header_format, 0, 0, ACK_FLAG)
             sock.sendto(ack_header, (server_ip, server_port))
@@ -72,8 +72,8 @@ def client(args):
         print('Client started...')
         
         # Create a UDP socket and set a timeout
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
-        sock.settimeout(1.0)  # GBN timeout (1sec)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(0.5)  # GBN timeout (500ms)
 
         # Read the file data and create chunks to send  
         file_data = read_file_data(args.file)

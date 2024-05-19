@@ -3,7 +3,6 @@
 from utils import *
 from client import client
 from server import server
-from utils import get_args, validate_args
 
 # ---------------- MAIN FUNCTION ----------------
 # This function parses and validates command-line arguments, then starts the client or server as specified.
@@ -23,7 +22,7 @@ def main():
     elif args.server:
         server(args)
     else:
-        print('Invalid option. Be cool and use a command bro')
+        print('Error: No mode selected. Please use --client to start in client mode or --server to start in server mode.')
 
 # ---------------- SCRIPT ENTRY POINT ---------------- 
 if __name__ == "__main__":

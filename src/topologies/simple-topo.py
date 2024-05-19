@@ -1,3 +1,4 @@
+# ---------------- NETWORK TOPOLOGY ----------------
 """
 This script sets up a simple network topology using Mininet with two hosts and a router. 
 The original code is sourced from the following GitHub repository https://github.com/safiqul/drtp-oppgave/tree/main
