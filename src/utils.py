@@ -1,22 +1,27 @@
+# ---------------- IMPORTS ---------------- 
+# Import necessary modules for command line input, network communication, 
+# handling binary data, operating system tasks, and time functions.
 import argparse
 import socket
 import struct
+import os
 import time
 from datetime import datetime
 
-
+# ---------------- CONSTANTS ---------------- 
+# BUFFER_SIZE and MAX_PACKET_SIZE define the size limits for network data transfer.
 BUFFER_SIZE = 4096
 MAX_PACKET_SIZE = 1000
 
-# ---------------- HEADER CODE 
+# ---------------- HEADER FORMATTING ---------------- 
+# Defines the format for data packet headers and flags for ACK, SYN, and FIN signals
+header_format = '!HHH'  # sequence number, acknowledgment number, and flags (all 2 bytes)
+ACK_FLAG = 1 << 2   # Flag for ACK signal
+SYN_FLAG = 1 << 3   # Flag for SYN signal
+FIN_FLAG = 1 << 1   # Flag for FIN signal
 
-header_format = '!HHH'  # sequence number, acknowledgment number, and flags are all 2 bytes
-ACK_FLAG = 1 << 2   # 4
-SYN_FLAG = 1 << 3   # 8
-FIN_FLAG = 1 << 1   # 2
-
-
-# ---------------- SOME MAIN CODE
+# ---------------- MAIN CODE ---------------- 
+# This section will contain primary functionality of the program. Code goes here.
 
 def get_args():
     """

@@ -1,11 +1,9 @@
-import socket
-import struct
-import time
-import os
-
+# ---------------- IMPORTS ---------------- 
+# Import necessary utilities
 from utils import *
 
-# ---------------- UTILITY FUNCTIONS FOR CLIENT  
+# ---------------- UTILITY FUNCTIONS FOR CLIENT ---------------- 
+# Functions for file reading, server connection, and client operations.
 
 def read_file_data(file_path):
     """
@@ -53,6 +51,10 @@ def handle_connection(sock, buffer_size, server_ip, server_port):
         sock.close()
         exit()
     return False
+
+
+# ---------------- MAIN CLIENT FUNCTION ---------------- 
+# This function starts a UDP client and handles file transfer to a server.
 
 def client(args):
     """

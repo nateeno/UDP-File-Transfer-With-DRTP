@@ -1,10 +1,9 @@
-import socket
-import struct
-import time
-
+# ---------------- IMPORTS ---------------- 
+# Import necessary utilities
 from utils import *
 
-# ---------------- UTILITY FUNCTIONS FOR SERVER 
+# ---------------- UTILITY FUNCTIONS ---------------- 
+# Functions for socket initiation, file handling, data receiving, and more.
 
 def init_socket(ip, port):
     """
@@ -126,7 +125,8 @@ def handle_fin(sock, buffer_size, throughput_mbps):
         print("Connection Closes")
         sock.close()
 
-# ---------------- SERVER 
+# ---------------- MAIN SERVER FUNCTION ---------------- 
+# This function starts a UDP server and handles file transfer from a client.
 
 def server(args):
     UDP_IP = args.ip
