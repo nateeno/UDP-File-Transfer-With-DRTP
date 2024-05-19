@@ -90,7 +90,7 @@ def send_acknowledgement(sock, addr, sequence_number, acknowledgement_dictionary
         acknowledgement_dictionary (dict): A dictionary that maps sequence numbers to acknowledgements.
     """
     sock.sendto(acknowledgement_dictionary[sequence_number], addr)
-    print(f"sending ack for the received {sequence_number}")
+    print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- sending ack for the received {sequence_number}")
 
 
 def calculate_throughput(elapsed_time, file_size_bits):
@@ -178,7 +178,7 @@ def server(args):
                                 print(f"Discarding packet with sequence number {DISCARD_SEQ}")
                                 DISCARD_SEQ = float('inf')  
                             elif sequence_number == expected_sequence_number:
-                                print(f"{time.strftime('%H:%M:%S')} -- packet {sequence_number} is received")
+                                print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- packet {sequence_number} is received")
                                 file_chunks.append(chunk)  
                                 send_acknowledgement(sock, addr, sequence_number, ack_dict)
                                 expected_sequence_number += 1
@@ -194,8 +194,7 @@ def server(args):
                                 continue
                             else:
                                 buffer[sequence_number] = data
-                                print(f"{time.strftime('%H:%M:%S')} -- out-of-order packet {sequence_number} is received")
-
+                                print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- out-of-order packet {sequence_number} is received")
                         if file_transfer_complete:
                             break  
 

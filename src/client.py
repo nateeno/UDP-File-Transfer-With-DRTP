@@ -101,23 +101,23 @@ def client(args):
                 frame_buffer[(nextseqnum - 1) % WINDOW_SIZE] = packet
                 window_packets.append(nextseqnum)
                 sock.sendto(packet, (UDP_IP, UDP_PORT))
-                print(f"{time.strftime('%H:%M:%S')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
+                print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
                 nextseqnum += 1
 
             try:
                 data, _ = sock.recvfrom(BUFFER_SIZE)
                 ack, _, _ = struct.unpack('!HHH', data)  
-                print(f"ACK for packet {ack} received")
+                print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- ACK for packet {ack} received")
 
                 if ack >= base and ack < nextseqnum:
                     window_packets = [seq for seq in window_packets if seq > ack]
                     base = ack + 1
             except socket.timeout:
                 # If timeout, retransmit all unacknowledged frames
-                print(f"{time.strftime('%H:%M:%S')} -- RTO occurred")
+                print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- RTO occurred")
                 for i in range(base, nextseqnum):
                     sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
-                    print(f"{time.strftime('%H:%M:%S')} -- retransmitting packet with seq = {i}")
+                    print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- retransmitting packet with seq = {i}")
 
         print("\nDATA Finished")
         print("\nConnection Teardown Phase:")
@@ -125,7 +125,7 @@ def client(args):
         # After sending all packets
         fin_header = struct.pack(header_format, 0, 0, FIN_FLAG)
         sock.sendto(fin_header, (UDP_IP, UDP_PORT))
-        print(f"{time.strftime('%H:%M:%S')} -- FIN packet is sent")
+        print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- FIN packet is sent")
 
         data, _ = sock.recvfrom(BUFFER_SIZE)
         if data == b'ACK':
