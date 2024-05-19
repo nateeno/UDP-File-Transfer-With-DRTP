@@ -62,26 +62,32 @@ def client(args):
     Args:
         args (argparse.Namespace): The command line arguments.
     """
+    
+    # Extract the IP, port, and window size from the argument parser
     UDP_IP = args.ip
     UDP_PORT = args.port
     WINDOW_SIZE = args.window
 
     try:
         print('Client started...')
+        
+        # Create a UDP socket and set a timeout
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         sock.settimeout(1.0)  # GBN timeout (1sec)
 
+        # Read the file data and create chunks to send  
         file_data = read_file_data(args.file)
         header_size = struct.calcsize(header_format)
         chunk_size = MAX_PACKET_SIZE - header_size
         file_chunks = [file_data[i:i+chunk_size] for i in range(0, len(file_data), chunk_size)]
 
+        # Begin the connection establishment phase
         print("Connection Establishment Phase:\n")
-
         syn_header = struct.pack(header_format, 0, 0, SYN_FLAG)
         sock.sendto(syn_header, (UDP_IP, UDP_PORT))
         print("SYN packet is sent")
 
+        # Handle the connection with the server
         connection_established = handle_connection(sock, BUFFER_SIZE, UDP_IP, UDP_PORT)
         if not connection_established:
             print("Error: Failed to establish connection.")
@@ -89,14 +95,17 @@ def client(args):
 
         print("\nData Transfer:\n")
 
-        # Sliding window implementation
+        # Begin the data transfer phase
         base = 1
         nextseqnum = 1
         frame_buffer = [None] * WINDOW_SIZE
         window_packets = []
 
+        # While there are chunks left to send
         while base <= len(file_chunks):
+            # Send all the chunks within the window
             while nextseqnum < base + WINDOW_SIZE and nextseqnum <= len(file_chunks):
+                # Create packet and send it
                 flags = FIN_FLAG if nextseqnum == len(file_chunks) else ACK_FLAG 
                 header = struct.pack(header_format, nextseqnum, 0, flags)
                 packet = header + file_chunks[nextseqnum - 1]
@@ -106,16 +115,18 @@ def client(args):
                 print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- packet with seq = {nextseqnum} is sent, sliding window = {window_packets}")
                 nextseqnum += 1
 
+            # Wait for acknowledgements
             try:
                 data, _ = sock.recvfrom(BUFFER_SIZE)
                 ack, _, _ = struct.unpack('!HHH', data)  
                 print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- ACK for packet {ack} received")
 
+                # If the ack is within the window, move the base of the window
                 if ack >= base and ack < nextseqnum:
                     window_packets = [seq for seq in window_packets if seq > ack]
                     base = ack + 1
             except socket.timeout:
-                # If timeout, retransmit all unacknowledged frames
+                # If a timeout occurs, retransmit all unacknowledged frames
                 print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- RTO occurred")
                 for i in range(base, nextseqnum):
                     sock.sendto(frame_buffer[(i - 1) % WINDOW_SIZE], (UDP_IP, UDP_PORT))
@@ -124,11 +135,12 @@ def client(args):
         print("\nDATA Finished")
         print("\nConnection Teardown Phase:")
 
-        # After sending all packets
+        # After all packets are sent, begin the connection teardown phase
         fin_header = struct.pack(header_format, 0, 0, FIN_FLAG)
         sock.sendto(fin_header, (UDP_IP, UDP_PORT))
         print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- FIN packet is sent")
 
+        # Wait for the final acknowledgement, then close the connection
         data, _ = sock.recvfrom(BUFFER_SIZE)
         if data == b'ACK':
             print("ACK packet is received")

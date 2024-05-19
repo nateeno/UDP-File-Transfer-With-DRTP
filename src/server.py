@@ -129,6 +129,8 @@ def handle_fin(sock, buffer_size, throughput_mbps):
 # This function starts a UDP server and handles file transfer from a client.
 
 def server(args):
+
+    # Extract the IP, port, and sequence to discard from the argument parser
     UDP_IP = args.ip
     UDP_PORT = args.port
     DISCARD_SEQ = args.discard
@@ -136,34 +138,36 @@ def server(args):
     try:
         print(f'Server started on IP: {UDP_IP} and port: {UDP_PORT}')  
 
-        data_received = False
-        ack_dict = {} 
-
+        # Create a UDP socket and bind it to the IP and port
         sock = init_socket(UDP_IP, UDP_PORT)
 
+        # Initialize variables for the data transfer
+        data_received = False
+        ack_dict = {} 
         expected_sequence_number = 1
-
         buffer = {}  
         file_chunks = []  
-
         file_transfer_complete = False  
-
         header_size = struct.calcsize(header_format)
 
         while True: 
             try:
+                # Receive data and check for flags
                 data, addr = receive_data(sock, BUFFER_SIZE)
-
                 _, _, flags = struct.unpack(header_format, data)
+
+                # If the flag is SYN, handle connection establishment
                 if flags == SYN_FLAG:
                     handle_syn(sock, addr)
 
+                    # Wait for ACK from client to establish connection
                     data, addr = receive_data(sock, BUFFER_SIZE)
                     _, _, flags = struct.unpack(header_format, data)
                     if flags == ACK_FLAG:
                         print('ACK packet is received')
                         print('Connection Established\n')
 
+                        # Start receiving data
                         start_time = time.time()
                         data_received = True
 
@@ -171,9 +175,11 @@ def server(args):
                             data, addr = receive_data(sock, BUFFER_SIZE)
                             sequence_number, _, flags, chunk = parse_data(data, header_size)
 
+                            # Create an ACK for this sequence number if it doesn't already exist
                             if sequence_number not in ack_dict:
                                 ack_dict[sequence_number] = struct.pack('!HHH', sequence_number, 0, 0)
 
+                            # Handle the incoming data based on its sequence number
                             if sequence_number == DISCARD_SEQ:
                                 print(f"Discarding packet with sequence number {DISCARD_SEQ}")
                                 DISCARD_SEQ = float('inf')  
@@ -182,9 +188,13 @@ def server(args):
                                 file_chunks.append(chunk)  
                                 send_acknowledgement(sock, addr, sequence_number, ack_dict)
                                 expected_sequence_number += 1
+                                
+                                # If last packet, break the loop
                                 if flags == FIN_FLAG:  
                                     file_transfer_complete = True  
                                     break
+
+                                # Process any buffered packets with sequence numbers that match the expected one
                                 while expected_sequence_number in buffer:
                                     data = buffer.pop(expected_sequence_number)
                                     sequence_number, _, flags, chunk = parse_data(data, header_size)
@@ -193,15 +203,18 @@ def server(args):
                             elif sequence_number < expected_sequence_number or sequence_number in buffer:
                                 continue
                             else:
+                                # If the packet is out of order, buffer it for later
                                 buffer[sequence_number] = data
                                 print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- out-of-order packet {sequence_number} is received")
+                        # If the file transfer is complete, break the loop
                         if file_transfer_complete:
                             break  
 
             except KeyboardInterrupt:
                 print("\nServer interrupted by user. Shutting down...")
                 break
-        
+
+        # If data was received, process it and calculate the throughput
         if data_received:
             end_time = time.time()
             elapsed_time = end_time - start_time
