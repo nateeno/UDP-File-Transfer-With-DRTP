@@ -42,7 +42,6 @@ def get_args():
     parser.add_argument('--discard', '-d', type=int, help='Seq number to discard for retransmission test')
     return parser.parse_args()
 
-
 def validate_args(args):
     """
     Validates the command line arguments for the application.

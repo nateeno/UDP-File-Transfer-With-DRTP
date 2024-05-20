@@ -181,7 +181,7 @@ def server(args):
 
                             # Handle the incoming data based on its sequence number
                             if sequence_number == DISCARD_SEQ:
-                                print(f"Discarding packet with sequence number {DISCARD_SEQ}")
+                                print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- Discarding packet with sequence number {DISCARD_SEQ}")
                                 DISCARD_SEQ = float('inf')  
                             elif sequence_number == expected_sequence_number:
                                 print(f"{datetime.now().strftime('%H:%M:%S.%f')} -- packet {sequence_number} is received")
