@@ -1,6 +1,6 @@
 # ---------------- IMPORTS ---------------- 
 # Import necessary modules for command line input, network communication, 
-# handling binary data, operating system tasks, and time functions.
+# handling binary data, operating system tasks, and time functions
 import argparse
 import socket
 import struct
@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 
 # ---------------- CONSTANTS ---------------- 
-# BUFFER_SIZE and MAX_PACKET_SIZE define the size limits for network data transfer.
+# BUFFER_SIZE and MAX_PACKET_SIZE define the size limits for network data transfer
 BUFFER_SIZE = 4096
 MAX_PACKET_SIZE = 1000
 
@@ -56,22 +56,22 @@ def validate_args(args):
         print('Error: Cannot run the application in both server and client mode. Please choose one.')
         exit(1)
 
-    # The port number must be in the range 1024-65535.
+    # The port number must be in the range 1024-65535
     if not 1024 <= args.port <= 65535:
         print("Error: Port number must be in the range 1024-65535")
         exit(1)
     
-    # The window size must be in the range 1-100.
+    # The window size must be in the range 1-100
     if not 1 <= args.window <= 100:
         print("Error: Window size must be in the range 1-100")
         exit(1)
 
-    # If the application is running in client mode, a file must be specified.
+    # If the application is running in client mode, a file must be specified
     if args.client and not args.file:
         print("Error: A file must be specified with the --file option in client mode.")
         exit(1)
     
-    # If the application is running in server mode, a file should not be specified.
+    # If the application is running in server mode, a file should not be specified
     if args.server and args.file:
         print("Error: Cannot specify a file with the --file option in server mode.")
         exit(1)

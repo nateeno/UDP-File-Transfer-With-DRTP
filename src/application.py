@@ -5,7 +5,7 @@ from client import client
 from server import server
 
 # ---------------- MAIN FUNCTION ----------------
-# This function parses and validates command-line arguments, then starts the client or server as specified.
+# This function parses and validates command-line arguments, then starts the client or server as specified
 def main():
     """
     Entry point of the script. 

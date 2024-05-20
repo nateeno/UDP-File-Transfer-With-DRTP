@@ -102,7 +102,7 @@ def calculate_throughput(elapsed_time, file_size_bits):
         float: The throughput of the transfer in Mbps.
     """
     throughput = file_size_bits / elapsed_time
-    throughput_mbps = round(throughput / 1000000, 2)  # round to 2 decimal places
+    throughput_mbps = round(throughput / 1000000, 2)
     return throughput_mbps
 
 
